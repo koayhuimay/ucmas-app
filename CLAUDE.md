@@ -34,7 +34,7 @@ Single codebase for iOS & Android via React Native + Expo.
 ```
 ucmas-app/
 ├── app/                    ← Screens (Expo Router file-based routing)
-│   ├── index.tsx           ✅ Built — redirects to drill for testing
+│   ├── index.tsx           ✅ Built — Home screen: level selector, mode picker, Start button
 │   ├── drill.tsx           ✅ Built — active drill screen with auto-submit, navigates to results after 10 Qs
 │   └── results.tsx         ✅ Built — post-drill results with accuracy ring + mistake review
 ├── components/
@@ -104,10 +104,10 @@ Three tables:
 - [x] `app/drill.tsx` — drill screen with auto-submit, navigates to results after 10 Qs
 - [x] `app/index.tsx` — redirects to drill for testing
 - [x] `app/results.tsx` — score summary, accuracy ring, mistake review
+- [x] `components/Timer.tsx` — countdown timer, red in last 10s, ends drill on timeout
+- [x] `app/index.tsx` — Home screen: level picker, Quick Drill / Full Practice mode buttons, streak placeholder, Start button
 
 ### Up Next (in order)
-- [ ] `components/Timer.tsx` — countdown for drill modes
-- [ ] `app/index.tsx` — real Home screen (level selector, mode picker, streak)
 - [ ] Expand drillEngine.ts to all levels and operations
 - [ ] `constants/colors.ts` — app color palette
 - [ ] Supabase integration

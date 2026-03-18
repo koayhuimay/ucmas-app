@@ -8,13 +8,16 @@ import {
   StyleSheet,
   SafeAreaView,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import Keypad from '../components/Keypad';
+import Timer from '../components/Timer';
 import { generateAddSubProblem, DrillProblem } from '../lib/drillEngine';
 
 const TOTAL_QUESTIONS = 10;
-const LEVEL = 1;
-const DRILL_MODE = 'quick';
+const MODE_SECONDS: Record<string, number> = {
+  quick: 60,
+  full: 480,
+};
 
 export interface QuestionResult {
   question: DrillProblem;
@@ -26,23 +29,57 @@ export interface QuestionResult {
 
 export default function DrillScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ level?: string; drillMode?: string }>();
+  const level = parseInt(params.level ?? '1', 10);
+  const drillMode = params.drillMode ?? 'quick';
+  const totalSeconds = MODE_SECONDS[drillMode] ?? 60;
+
   const [problem, setProblem] = useState<DrillProblem | null>(null);
   const [input, setInput] = useState('');
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
   const [score, setScore] = useState({ correct: 0, total: 0 });
+  const [timerRunning, setTimerRunning] = useState(false);
+  const drillEndedRef = useRef(false);
 
   const resultsRef = useRef<QuestionResult[]>([]);
   const questionStartRef = useRef<number>(Date.now());
   const drillStartRef = useRef<number>(Date.now());
 
-  // Generate first problem on load
+  // Generate first problem on load and start timer
   useEffect(() => {
     drillStartRef.current = Date.now();
     nextProblem();
+    setTimerRunning(true);
   }, []);
 
+  function endDrill(currentResults: typeof resultsRef.current, currentCorrect: number) {
+    if (drillEndedRef.current) return;
+    drillEndedRef.current = true;
+    setTimerRunning(false);
+    const totalTimeSeconds = Math.round((Date.now() - drillStartRef.current) / 1000);
+    router.replace({
+      pathname: '/results',
+      params: {
+        data: JSON.stringify({
+          results: currentResults,
+          totalQuestions: currentResults.length || 1,
+          correctCount: currentCorrect,
+          totalTimeSeconds,
+          level,
+          drillMode,
+        }),
+      },
+    });
+  }
+
+  function handleTimeUp() {
+    const current = resultsRef.current;
+    const correct = current.filter(r => r.isCorrect).length;
+    endDrill(current, correct);
+  }
+
   function nextProblem() {
-    setProblem(generateAddSubProblem(LEVEL));
+    setProblem(generateAddSubProblem(level));
     setInput('');
     setFeedback(null);
     questionStartRef.current = Date.now();
@@ -79,21 +116,8 @@ export default function DrillScreen() {
       const delay = isCorrect ? 300 : 500;
 
       if (newTotal >= TOTAL_QUESTIONS) {
-        const totalTimeSeconds = Math.round((Date.now() - drillStartRef.current) / 1000);
         setTimeout(() => {
-          router.replace({
-            pathname: '/results',
-            params: {
-              data: JSON.stringify({
-                results: resultsRef.current,
-                totalQuestions: TOTAL_QUESTIONS,
-                correctCount: newCorrect,
-                totalTimeSeconds,
-                level: LEVEL,
-                drillMode: DRILL_MODE,
-              }),
-            },
-          });
+          endDrill(resultsRef.current, newCorrect);
         }, delay);
       } else {
         setTimeout(() => {
@@ -112,6 +136,13 @@ export default function DrillScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Timer */}
+      <Timer
+        totalSeconds={totalSeconds}
+        onTimeUp={handleTimeUp}
+        isRunning={timerRunning}
+      />
+
       {/* Score */}
       <Text style={styles.score}>
         {score.correct} / {score.total}
