@@ -13,7 +13,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Keypad from '../components/Keypad';
 import Timer from '../components/Timer';
-import { generateAddSubProblem, DrillProblem } from '../lib/drillEngine';
+import { generateAddSubProblem, generateMultiplyProblem, generateDivideProblem, DrillProblem } from '../lib/drillEngine';
 
 const TOTAL_QUESTIONS = 10;
 const MODE_SECONDS: Record<string, number> = {
@@ -31,9 +31,10 @@ export interface QuestionResult {
 
 export default function DrillScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ level?: string; drillMode?: string }>();
+  const params = useLocalSearchParams<{ level?: string; drillMode?: string; operation?: string }>();
   const level = parseInt(params.level ?? '1', 10);
   const drillMode = params.drillMode ?? 'quick';
+  const operation = params.operation ?? 'add_sub';
   const totalSeconds = MODE_SECONDS[drillMode] ?? 60;
 
   const [problem, setProblem] = useState<DrillProblem | null>(null);
@@ -69,6 +70,7 @@ export default function DrillScreen() {
           totalTimeSeconds,
           level,
           drillMode,
+          operation,
         }),
       },
     });
@@ -81,7 +83,15 @@ export default function DrillScreen() {
   }
 
   function nextProblem() {
-    setProblem(generateAddSubProblem(level));
+    let generated: DrillProblem;
+    if (operation === 'multiply') {
+      generated = generateMultiplyProblem(level);
+    } else if (operation === 'divide') {
+      generated = generateDivideProblem(level);
+    } else {
+      generated = generateAddSubProblem(level);
+    }
+    setProblem(generated);
     setInput('');
     setFeedback(null);
     questionStartRef.current = Date.now();
@@ -181,12 +191,22 @@ export default function DrillScreen() {
         feedback === 'correct' && styles.correct,
         feedback === 'wrong' && styles.wrong,
       ]}>
-        {problem.numbers.map((num, index) => (
-          <Text key={index} style={styles.number}>
-            {num > 0 && index > 0 ? `+${num}` : num}
+        {operation === 'add_sub' ? (
+          <>
+            {problem.numbers.map((num, index) => (
+              <Text key={index} style={styles.number}>
+                {num > 0 && index > 0 ? `+${num}` : num}
+              </Text>
+            ))}
+            <View style={styles.divider} />
+          </>
+        ) : (
+          <Text style={styles.number}>
+            {operation === 'multiply'
+              ? `${problem.numbers[0]} × ${problem.numbers[1]}`
+              : `${problem.numbers[0]} ÷ ${problem.numbers[1]}`}
           </Text>
-        ))}
-        <View style={styles.divider} />
+        )}
         <Text style={styles.answerInput}>
           {input || '?'}
         </Text>

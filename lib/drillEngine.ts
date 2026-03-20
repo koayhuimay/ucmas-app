@@ -8,6 +8,7 @@ export interface DrillProblem {
   numbers: number[];       // the sequence of numbers to add/subtract
   answer: number;          // the correct answer
   answerDigits: number;    // how many digits the answer has (for auto-submit)
+  operation?: 'add_sub' | 'multiply' | 'divide';
 }
 
 // Returns a random integer between min and max (inclusive)
@@ -81,5 +82,74 @@ export function generateAddSubProblem(level: number): DrillProblem {
     numbers,
     answer,
     answerDigits: countDigits(answer),
+    operation: 'add_sub',
   };
+}
+
+// Generates one multiplication drill problem for a given level.
+// Spec format: '2d x 1d' means first number has 2 digits, second has 1 digit.
+export function generateMultiplyProblem(level: number): DrillProblem {
+  const config = getLevelConfig(level);
+
+  if (!config.multiply || config.multiply.length === 0) {
+    throw new Error(`Level ${level} does not support multiplication`);
+  }
+
+  const spec = config.multiply[randomInt(0, config.multiply.length - 1)];
+
+  // Parse 'NNd x NNd' — extract the two digit counts
+  const match = spec.match(/^(\d+)d x (\d+)d$/);
+  if (!match) throw new Error(`Invalid multiply spec: "${spec}"`);
+  const firstDigits = parseInt(match[1], 10);
+  const secondDigits = parseInt(match[2], 10);
+
+  const first = randomNumWithDigits(firstDigits);
+  const second = randomNumWithDigits(secondDigits);
+  const product = first * second;
+
+  return {
+    numbers: [first, second],
+    answer: product,
+    answerDigits: countDigits(product),
+    operation: 'multiply',
+  };
+}
+
+// Generates one division drill problem for a given level.
+// Built backwards (divisor * quotient = dividend) to guarantee no remainders.
+// Spec format: '3d / 1d' means dividend has 3 digits, divisor has 1 digit.
+export function generateDivideProblem(level: number): DrillProblem {
+  const config = getLevelConfig(level);
+
+  if (!config.divide || config.divide.length === 0) {
+    throw new Error(`Level ${level} does not support division`);
+  }
+
+  const spec = config.divide[randomInt(0, config.divide.length - 1)];
+
+  // Parse 'NNd / NNd' — extract dividend and divisor digit counts
+  const match = spec.match(/^(\d+)d \/ (\d+)d$/);
+  if (!match) throw new Error(`Invalid divide spec: "${spec}"`);
+  const dividendDigits = parseInt(match[1], 10);
+  const divisorDigits = parseInt(match[2], 10);
+
+  // Quotient digit count: roughly dividendDigits - divisorDigits, minimum 1
+  const quotientDigits = Math.max(1, dividendDigits - divisorDigits);
+
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const divisor = randomNumWithDigits(divisorDigits);
+    const quotient = randomNumWithDigits(quotientDigits);
+    const dividend = divisor * quotient;
+
+    if (countDigits(dividend) === dividendDigits) {
+      return {
+        numbers: [dividend, divisor],
+        answer: quotient,
+        answerDigits: countDigits(quotient),
+        operation: 'divide',
+      };
+    }
+  }
+
+  throw new Error(`Could not generate a valid division problem for spec "${spec}" after 100 attempts`);
 }
