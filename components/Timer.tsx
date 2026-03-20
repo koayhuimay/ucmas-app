@@ -18,11 +18,13 @@ function formatTime(seconds: number): string {
 
 export default function Timer({ totalSeconds, onTimeUp, isRunning }: TimerProps) {
   const [secondsLeft, setSecondsLeft] = useState(totalSeconds);
+  const [timeUp, setTimeUp] = useState(false);
   const onTimeUpRef = useRef(onTimeUp);
   onTimeUpRef.current = onTimeUp;
 
   useEffect(() => {
     setSecondsLeft(totalSeconds);
+    setTimeUp(false);
   }, [totalSeconds]);
 
   useEffect(() => {
@@ -32,7 +34,7 @@ export default function Timer({ totalSeconds, onTimeUp, isRunning }: TimerProps)
       setSecondsLeft(prev => {
         if (prev <= 1) {
           clearInterval(interval);
-          onTimeUpRef.current();
+          setTimeUp(true);
           return 0;
         }
         return prev - 1;
@@ -41,6 +43,10 @@ export default function Timer({ totalSeconds, onTimeUp, isRunning }: TimerProps)
 
     return () => clearInterval(interval);
   }, [isRunning]);
+
+  useEffect(() => {
+    if (timeUp) onTimeUpRef.current();
+  }, [timeUp]);
 
   const isUrgent = secondsLeft <= 10;
 

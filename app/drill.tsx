@@ -7,6 +7,8 @@ import {
   Text,
   StyleSheet,
   SafeAreaView,
+  TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Keypad from '../components/Keypad';
@@ -127,6 +129,26 @@ export default function DrillScreen() {
     }
   }
 
+  function handleQuitPress() {
+    setTimerRunning(false);
+    Alert.alert(
+      'Quit Drill?',
+      'Your progress will not be saved.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+          onPress: () => setTimerRunning(true),
+        },
+        {
+          text: 'Yes, quit',
+          style: 'destructive',
+          onPress: () => router.replace('/'),
+        },
+      ]
+    );
+  }
+
   function handleDelete() {
     if (feedback) return;
     setInput(prev => prev.slice(0, -1));
@@ -136,6 +158,11 @@ export default function DrillScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Quit button */}
+      <TouchableOpacity style={styles.quitButton} onPress={handleQuitPress} activeOpacity={0.7}>
+        <Text style={styles.quitIcon}>✕</Text>
+      </TouchableOpacity>
+
       {/* Timer */}
       <Timer
         totalSeconds={totalSeconds}
@@ -214,5 +241,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFD700',
     marginVertical: 2,
+  },
+  quitButton: {
+    position: 'absolute',
+    top: 52,
+    left: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#1E1E2E',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quitIcon: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '600',
   },
 });

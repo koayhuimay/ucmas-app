@@ -50,6 +50,8 @@ export default function ResultsScreen() {
     totalQuestions,
     correctCount,
     totalTimeSeconds,
+    level,
+    drillMode,
   }: DrillResults = JSON.parse(data);
 
   const accuracy = Math.round((correctCount / totalQuestions) * 100);
@@ -134,10 +136,19 @@ export default function ResultsScreen() {
         {/* Practice Again */}
         <TouchableOpacity
           style={styles.button}
-          onPress={() => router.replace('/drill')}
+          onPress={() => router.replace({ pathname: '/drill', params: { level, drillMode } })}
           activeOpacity={0.8}
         >
           <Text style={styles.buttonText}>Practice Again</Text>
+        </TouchableOpacity>
+
+        {/* Back to Home */}
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => router.replace('/')}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.secondaryButtonText}>Back to Home</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -311,5 +322,20 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  secondaryButton: {
+    borderWidth: 2,
+    borderColor: '#333',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 48,
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  secondaryButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#888',
   },
 });
