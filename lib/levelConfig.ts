@@ -1,134 +1,185 @@
 // lib/levelConfig.ts
-// Single source of truth for all 10 UCMAS levels.
-// The drill engine and UI read from here — never hardcode level data elsewhere.
+// Single source of truth for all level and format data.
+// Never hardcode level/format data in screens — always import from here.
 
-export type Operation = 'add_sub' | 'multiply' | 'divide';
-
-export interface LevelConfig {
-  level: number;
+export interface AddSubLevel {
+  id: number;
   name: string;
-  addSubDigits: number[];      // digit lengths allowed in add/sub problems
-  rows: [number, number];      // [min, max] number of rows per problem
-  operations: Operation[];     // which operations are available at this level
-  mentalRows?: [number, number]; // [min, max] rows for mental math (if applicable)
-  mentalDigits?: number;       // digit length for mental math
-  multiply?: string[];         // e.g. ['2d x 1d', '3d x 1d']
-  divide?: string[];           // e.g. ['3d / 1d']
-  isFree: boolean;             // true = Levels 1–3 (free tier)
+  operandDigits: [number, number]; // [min, max] digit count for operands
+  rows: [number, number];          // [min, max] number of rows per problem
+  maxAnswerDigits: number;
+  description: string;
 }
 
-const levelConfig: LevelConfig[] = [
+export interface MultFormat {
+  id: string;
+  label: string;
+  multiplicandDigits: number;
+  multiplierDigits: number;
+  maxAnswerDigits: number;
+}
+
+export interface DivFormat {
+  id: string;
+  label: string;
+  dividendDigits: number;
+  divisorDigits: number;
+  maxAnswerDigits: number;
+}
+
+export const ADD_SUB_LEVELS: AddSubLevel[] = [
   {
-    level: 1,
-    name: 'Basic',
-    addSubDigits: [1],
-    rows: [3, 5],
-    operations: ['add_sub'],
-    isFree: true,
+    id: 1,
+    name: 'Level 1',
+    operandDigits: [1, 1],
+    rows: [4, 7],
+    maxAnswerDigits: 1,
+    description: 'Starting point. Single-digit operands and answers.',
   },
   {
-    level: 2,
-    name: 'Elementary A',
-    addSubDigits: [1, 2],
-    rows: [3, 5],
-    operations: ['add_sub', 'multiply'],
-    isFree: true,
+    id: 2,
+    name: 'Level 2',
+    operandDigits: [1, 1],
+    rows: [3, 7],
+    maxAnswerDigits: 2,
+    description: 'Answers can reach 2 digits (sums up to ~61).',
   },
   {
-    level: 3,
-    name: 'Elementary B',
-    addSubDigits: [1, 2],
-    rows: [4, 6],
-    operations: ['add_sub'],
-    mentalDigits: 1,
-    mentalRows: [3, 4],
-    isFree: true,
+    id: 3,
+    name: 'Level 3',
+    operandDigits: [1, 2],
+    rows: [3, 8],
+    maxAnswerDigits: 3,
+    description: '2-digit operands appear. Answers reach 3 digits.',
   },
   {
-    level: 4,
-    name: 'Intermediate A',
-    addSubDigits: [2],
-    rows: [4, 6],
-    operations: ['add_sub', 'multiply'],
-    multiply: ['2d x 1d'],
-    mentalDigits: 1,
-    mentalRows: [5, 6],
-    isFree: false,
+    id: 4,
+    name: 'Level 4',
+    operandDigits: [1, 2],
+    rows: [4, 10],
+    maxAnswerDigits: 3,
+    description: 'Row count jumps to 10. Mix of 1-digit and 2-digit operands.',
   },
   {
-    level: 5,
-    name: 'Intermediate B',
-    addSubDigits: [1, 2],
+    id: 5,
+    name: 'Level 5',
+    operandDigits: [2, 2],
     rows: [5, 8],
-    operations: ['add_sub', 'multiply', 'divide'],
-    multiply: ['3d x 1d'],
-    divide: ['3d / 1d'],
-    mentalDigits: 2,
-    mentalRows: [5, 5],
-    isFree: false,
+    maxAnswerDigits: 3,
+    description: 'Most operands are 2-digit. Heavier 2-digit problems.',
   },
   {
-    level: 6,
-    name: 'Higher A',
-    addSubDigits: [2, 3],
-    rows: [5, 8],
-    operations: ['add_sub', 'multiply', 'divide'],
-    multiply: ['4d x 1d', '2d x 2d'],
-    divide: ['4d / 1d', '5d / 1d'],
-    mentalDigits: 2,
-    mentalRows: [6, 8],
-    isFree: false,
-  },
-  {
-    level: 7,
-    name: 'Higher B',
-    addSubDigits: [2, 3],
+    id: 6,
+    name: 'Level 6',
+    operandDigits: [2, 2],
     rows: [6, 10],
-    operations: ['add_sub', 'multiply', 'divide'],
-    multiply: ['2d x 2d', '3d x 2d'],
-    divide: ['4d / 2d', '5d / 2d'],
-    mentalDigits: 2,
-    mentalRows: [8, 10],
-    isFree: false,
+    maxAnswerDigits: 3,
+    description: 'Long sequences of 2-digit numbers.',
   },
   {
-    level: 8,
-    name: 'Advanced',
-    addSubDigits: [3, 4],
+    id: 7,
+    name: 'Level 7',
+    operandDigits: [2, 2],
     rows: [8, 10],
-    operations: ['add_sub', 'multiply', 'divide'],
-    multiply: ['3d x 2d', '5d x 2d'],
-    divide: ['5d / 2d', '5d / 3d'],
-    isFree: false,
+    maxAnswerDigits: 3,
+    description: 'Peak 2-digit difficulty. 8–10 rows.',
   },
   {
-    level: 9,
-    name: 'Grand A',
-    addSubDigits: [4],
-    rows: [10, 12],
-    operations: ['add_sub', 'multiply', 'divide'],
-    isFree: false,
-  },
-  {
-    level: 10,
-    name: 'Grand B',
-    addSubDigits: [4],
-    rows: [10, 12],
-    operations: ['add_sub', 'multiply', 'divide'],
-    isFree: false,
+    id: 8,
+    name: 'Level 8',
+    operandDigits: [2, 3],
+    rows: [8, 10],
+    maxAnswerDigits: 4,
+    description: '3-digit operands, decimal arithmetic, answers reach 4+ digits.',
   },
 ];
 
-export default levelConfig;
+export const MULT_FORMATS: MultFormat[] = [
+  {
+    id: 'mult_2d_1d',
+    label: '2-digit × 1-digit',
+    multiplicandDigits: 2,
+    multiplierDigits: 1,
+    maxAnswerDigits: 3,
+  },
+  {
+    id: 'mult_1d_2d',
+    label: '1-digit × 2-digit',
+    multiplicandDigits: 1,
+    multiplierDigits: 2,
+    maxAnswerDigits: 3,
+  },
+  {
+    id: 'mult_3d_1d',
+    label: '3-digit × 1-digit',
+    multiplicandDigits: 3,
+    multiplierDigits: 1,
+    maxAnswerDigits: 4,
+  },
+  {
+    id: 'mult_1d_3d',
+    label: '1-digit × 3-digit',
+    multiplicandDigits: 1,
+    multiplierDigits: 3,
+    maxAnswerDigits: 4,
+  },
+  {
+    id: 'mult_2d_2d',
+    label: '2-digit × 2-digit',
+    multiplicandDigits: 2,
+    multiplierDigits: 2,
+    maxAnswerDigits: 4,
+  },
+  {
+    id: 'mult_4d_1d',
+    label: '4-digit × 1-digit',
+    multiplicandDigits: 4,
+    multiplierDigits: 1,
+    maxAnswerDigits: 5,
+  },
+  {
+    id: 'mult_3d_2d',
+    label: '3-digit × 2-digit',
+    multiplicandDigits: 3,
+    multiplierDigits: 2,
+    maxAnswerDigits: 5,
+  },
+  {
+    id: 'mult_4d_2d',
+    label: '4-digit × 2-digit',
+    multiplicandDigits: 4,
+    multiplierDigits: 2,
+    maxAnswerDigits: 6,
+  },
+];
 
-// Helper: get config for a specific level number
-export function getLevelConfig(level: number): LevelConfig {
-  const config = levelConfig.find(l => l.level === level);
-  if (!config) throw new Error(`Level ${level} not found in levelConfig`);
-  return config;
-}
-
-// Helper: get all free levels
-export function getFreeLevels(): LevelConfig[] {
-  return levelConfig.filter(l => l.isFree);
-}
+export const DIV_FORMATS: DivFormat[] = [
+  {
+    id: 'div_3d_1d',
+    label: '3-digit ÷ 1-digit',
+    dividendDigits: 3,
+    divisorDigits: 1,
+    maxAnswerDigits: 3,
+  },
+  {
+    id: 'div_4d_1d',
+    label: '4-digit ÷ 1-digit',
+    dividendDigits: 4,
+    divisorDigits: 1,
+    maxAnswerDigits: 3,
+  },
+  {
+    id: 'div_4d_2d',
+    label: '4-digit ÷ 2-digit',
+    dividendDigits: 4,
+    divisorDigits: 2,
+    maxAnswerDigits: 3,
+  },
+  {
+    id: 'div_5d_2d',
+    label: '5-digit ÷ 2-digit',
+    dividendDigits: 5,
+    divisorDigits: 2,
+    maxAnswerDigits: 3,
+  },
+];
