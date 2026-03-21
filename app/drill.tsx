@@ -13,16 +13,16 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Keypad from '../components/Keypad';
 import Timer from '../components/Timer';
-import { generateAddSubProblem, generateMultiplyProblem, generateDivideProblem, DrillProblem } from '../lib/drillEngine';
+import { generateProblem, Problem } from '../lib/drillEngine';
 
 const TOTAL_QUESTIONS = 10;
 const MODE_SECONDS: Record<string, number> = {
-  quick: 60,
+  quick: 120,
   full: 480,
 };
 
 export interface QuestionResult {
-  question: DrillProblem;
+  question: Problem;
   userAnswer: string;
   correctAnswer: string;
   isCorrect: boolean;
@@ -31,17 +31,18 @@ export interface QuestionResult {
 
 export default function DrillScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ level?: string; drillMode?: string; operation?: string }>();
-  const level = parseInt(params.level ?? '1', 10);
-  const drillMode = params.drillMode ?? 'quick';
-  const operation = params.operation ?? 'add_sub';
-  const totalSeconds = MODE_SECONDS[drillMode] ?? 60;
+  const params = useLocalSearchParams<{ track?: string; levelOrFormatId?: string; mode?: string }>();
+  const track = (params.track ?? 'add_sub') as 'add_sub' | 'mult' | 'div';
+  const levelOrFormatId = params.levelOrFormatId ?? '1';
+  const mode = params.mode ?? 'quick';
+  const totalSeconds = MODE_SECONDS[mode] ?? 120;
 
-  const [problem, setProblem] = useState<DrillProblem | null>(null);
+  const [problem, setProblem] = useState<Problem | null>(null);
   const [input, setInput] = useState('');
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
   const [score, setScore] = useState({ correct: 0, total: 0 });
   const [timerRunning, setTimerRunning] = useState(false);
+  const [areaHeight, setAreaHeight] = useState(0);
   const drillEndedRef = useRef(false);
 
   const resultsRef = useRef<QuestionResult[]>([]);
@@ -68,9 +69,9 @@ export default function DrillScreen() {
           totalQuestions: currentResults.length || 1,
           correctCount: currentCorrect,
           totalTimeSeconds,
-          level,
-          drillMode,
-          operation,
+          track,
+          levelOrFormatId,
+          mode,
         }),
       },
     });
@@ -83,15 +84,8 @@ export default function DrillScreen() {
   }
 
   function nextProblem() {
-    let generated: DrillProblem;
-    if (operation === 'multiply') {
-      generated = generateMultiplyProblem(level);
-    } else if (operation === 'divide') {
-      generated = generateDivideProblem(level);
-    } else {
-      generated = generateAddSubProblem(level);
-    }
-    setProblem(generated);
+    const id = track === 'add_sub' ? parseInt(levelOrFormatId, 10) : levelOrFormatId;
+    setProblem(generateProblem(track, id));
     setInput('');
     setFeedback(null);
     questionStartRef.current = Date.now();
@@ -104,7 +98,7 @@ export default function DrillScreen() {
     setInput(newInput);
 
     // Auto-submit: check if digit count matches expected answer length
-    if (problem && newInput.length === problem.answerDigits) {
+    if (problem && newInput.length === problem.expectedDigits) {
       const isCorrect = parseInt(newInput) === problem.answer;
       const timeMs = Date.now() - questionStartRef.current;
 
@@ -153,7 +147,7 @@ export default function DrillScreen() {
         {
           text: 'Yes, quit',
           style: 'destructive',
-          onPress: () => router.replace('/'),
+          onPress: () => router.replace({ pathname: '/', params: { track, levelOrFormatId, mode } }),
         },
       ]
     );
@@ -166,54 +160,78 @@ export default function DrillScreen() {
 
   if (!problem) return null;
 
+  const rowCount = problem.operands.length;
+  const totalItems = track === 'add_sub' ? rowCount + 1 : 2;
+  const usableHeight = areaHeight > 0 ? areaHeight - 16 : 0;
+
+  let fontSize: number;
+  let verticalMargin: number;
+  let dividerMargin: number;
+
+  if (usableHeight > 0) {
+    const raw = Math.floor((usableHeight - 10) / (totalItems * 1.3));
+    fontSize = Math.min(36, Math.max(14, raw));
+  } else {
+    fontSize = rowCount <= 4 ? 32 : rowCount <= 6 ? 24 : rowCount <= 8 ? 18 : 14;
+  }
+
+  verticalMargin = Math.max(1, Math.floor(fontSize * 0.06));
+  dividerMargin = Math.max(2, Math.floor(fontSize * 0.12));
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Quit button */}
-      <TouchableOpacity style={styles.quitButton} onPress={handleQuitPress} activeOpacity={0.7}>
-        <Text style={styles.quitIcon}>✕</Text>
-      </TouchableOpacity>
-
-      {/* Timer */}
-      <Timer
-        totalSeconds={totalSeconds}
-        onTimeUp={handleTimeUp}
-        isRunning={timerRunning}
-      />
+      {/* Top section: quit button | timer (centered) | spacer */}
+      <View style={styles.topSection}>
+        <TouchableOpacity style={styles.quitButton} onPress={handleQuitPress} activeOpacity={0.7}>
+          <Text style={styles.quitIcon}>✕</Text>
+        </TouchableOpacity>
+        <View style={styles.timerWrapper}>
+          <Timer
+            totalSeconds={totalSeconds}
+            onTimeUp={handleTimeUp}
+            isRunning={timerRunning}
+          />
+        </View>
+        <View style={styles.topSpacer} />
+      </View>
 
       {/* Score */}
       <Text style={styles.score}>
         {score.correct} / {score.total}
       </Text>
 
-      {/* Problem display */}
-      <View style={[
-        styles.problemCard,
-        feedback === 'correct' && styles.correct,
-        feedback === 'wrong' && styles.wrong,
-      ]}>
-        {operation === 'add_sub' ? (
-          <>
-            {problem.numbers.map((num, index) => (
-              <Text key={index} style={styles.number}>
-                {num > 0 && index > 0 ? `+${num}` : num}
+      {/* Problem display — fills remaining space, centers the card */}
+      <View style={styles.problemArea} onLayout={e => setAreaHeight(e.nativeEvent.layout.height)}>
+        {(() => {
+          const feedbackColor = feedback === 'correct' ? '#4CAF50' : feedback === 'wrong' ? '#F44336' : undefined;
+          return (
+            <View style={styles.problemCard}>
+              {track === 'add_sub' ? (
+                <>
+                  {problem.operands.map((operand, index) => (
+                    <Text key={index} style={[styles.number, { fontSize, marginVertical: verticalMargin }, feedbackColor && { color: feedbackColor }]}>
+                      {index === 0 ? operand : `${problem.operators[index - 1]}${operand}`}
+                    </Text>
+                  ))}
+                  <View style={[styles.divider, { marginVertical: dividerMargin }]} />
+                </>
+              ) : (
+                <Text style={[styles.number, { fontSize, marginVertical: verticalMargin }, feedbackColor && { color: feedbackColor }]}>
+                  {`${problem.operands[0]} ${problem.operators[0]} ${problem.operands[1]}`}
+                </Text>
+              )}
+              <Text style={[styles.answerInput, { fontSize, marginVertical: verticalMargin }, feedbackColor && { color: feedbackColor }]}>
+                {input || '?'}
               </Text>
-            ))}
-            <View style={styles.divider} />
-          </>
-        ) : (
-          <Text style={styles.number}>
-            {operation === 'multiply'
-              ? `${problem.numbers[0]} × ${problem.numbers[1]}`
-              : `${problem.numbers[0]} ÷ ${problem.numbers[1]}`}
-          </Text>
-        )}
-        <Text style={styles.answerInput}>
-          {input || '?'}
-        </Text>
+            </View>
+          );
+        })()}
       </View>
 
-      {/* Keypad */}
-      <Keypad onPress={handleDigit} onDelete={handleDelete} />
+      {/* Keypad — always at the bottom */}
+      <View style={styles.keypadWrapper}>
+        <Keypad onPress={handleDigit} onDelete={handleDelete} />
+      </View>
     </SafeAreaView>
   );
 }
@@ -222,50 +240,60 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0F0F1A',
+    justifyContent: 'space-between',
+  },
+  topSection: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 40,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+  },
+  timerWrapper: {
+    transform: [{ scale: 0.7 }],
+  },
+  topSpacer: {
+    width: 40,
   },
   score: {
     fontSize: 20,
     color: '#888',
     fontWeight: '600',
+    textAlign: 'center',
+  },
+  problemArea: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    paddingHorizontal: 24,
+    paddingVertical: 8,
   },
   problemCard: {
-    backgroundColor: '#1E1E2E',
-    borderRadius: 24,
-    padding: 32,
+    backgroundColor: 'transparent',
     alignItems: 'flex-end',
-    minWidth: 200,
+    width: '100%',
   },
-  correct: {
-    backgroundColor: '#1A3A1A',
-  },
-  wrong: {
-    backgroundColor: '#3A1A1A',
+  keypadWrapper: {
+    paddingTop: 0,
+    paddingBottom: 0,
   },
   number: {
-    fontSize: 36,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginVertical: 2,
   },
   divider: {
     height: 2,
     backgroundColor: '#444',
     alignSelf: 'stretch',
-    marginVertical: 8,
   },
   answerInput: {
-    fontSize: 36,
     fontWeight: '700',
     color: '#FFD700',
-    marginVertical: 2,
   },
   quitButton: {
-    position: 'absolute',
-    top: 52,
-    left: 24,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
     width: 40,
     height: 40,
     borderRadius: 20,

@@ -11,7 +11,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { DrillProblem } from '../lib/drillEngine';
+import { Problem } from '../lib/drillEngine';
 import { QuestionResult } from './drill';
 
 interface DrillResults {
@@ -19,19 +19,19 @@ interface DrillResults {
   totalQuestions: number;
   correctCount: number;
   totalTimeSeconds: number;
-  level: number;
-  drillMode: string;
+  track: string;
+  levelOrFormatId: string;
+  mode: string;
 }
 
-function formatProblem(numbers: number[]): string {
-  return (
-    numbers
-      .map((n, i) => {
-        if (i === 0) return String(n);
-        return n > 0 ? `+ ${n}` : `− ${Math.abs(n)}`;
-      })
-      .join('   ') + '   =   ?'
-  );
+function formatProblem(operands: number[], operators: string[]): string {
+  if (operators[0] === '×' || operators[0] === '÷') {
+    return `${operands[0]} ${operators[0]} ${operands[1]} = ?`;
+  }
+  return operands.map((n, i) => {
+    if (i === 0) return String(n);
+    return `${operators[i - 1]} ${n}`;
+  }).join('   ') + '   =   ?';
 }
 
 function formatTime(seconds: number): string {
@@ -50,8 +50,9 @@ export default function ResultsScreen() {
     totalQuestions,
     correctCount,
     totalTimeSeconds,
-    level,
-    drillMode,
+    track,
+    levelOrFormatId,
+    mode,
   }: DrillResults = JSON.parse(data);
 
   const accuracy = Math.round((correctCount / totalQuestions) * 100);
@@ -106,7 +107,7 @@ export default function ResultsScreen() {
             {mistakes.map((r, i) => (
               <View key={i} style={styles.mistakeCard}>
                 <Text style={styles.problemText}>
-                  {formatProblem(r.question.numbers)}
+                  {formatProblem(r.question.operands, r.question.operators)}
                 </Text>
                 <View style={styles.answersRow}>
                   <View style={styles.answerBox}>
@@ -136,7 +137,7 @@ export default function ResultsScreen() {
         {/* Practice Again */}
         <TouchableOpacity
           style={styles.button}
-          onPress={() => router.replace({ pathname: '/drill', params: { level, drillMode } })}
+          onPress={() => router.replace({ pathname: '/drill', params: { track, levelOrFormatId, mode } })}
           activeOpacity={0.8}
         >
           <Text style={styles.buttonText}>Practice Again</Text>

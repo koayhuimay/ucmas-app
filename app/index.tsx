@@ -1,5 +1,5 @@
 // app/index.tsx
-// Home screen: level selector, drill mode picker, streak badge, start button.
+// Home screen: three-track navigation, level/format picker, mode selector, start button.
 
 import React, { useState } from 'react';
 import {
@@ -9,26 +9,39 @@ import {
   ScrollView,
   StyleSheet,
   SafeAreaView,
-  Modal,
-  FlatList,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import levelConfig from '../lib/levelConfig';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { ADD_SUB_LEVELS, MULT_FORMATS, DIV_FORMATS } from '../lib/levelConfig';
 
-type DrillMode = 'quick' | 'full';
+type Track = 'add_sub' | 'mult' | 'div';
+type Mode = 'quick' | 'full';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const [selectedLevel, setSelectedLevel] = useState(1);
-  const [drillMode, setDrillMode] = useState<DrillMode>('quick');
-  const [showLevelPicker, setShowLevelPicker] = useState(false);
+  const params = useLocalSearchParams<{ track?: string; levelOrFormatId?: string; mode?: string }>();
 
-  const currentLevel = levelConfig.find(l => l.level === selectedLevel)!;
+  const initTrack = (params.track as Track) ?? 'add_sub';
+  const initMode = (params.mode as Mode) ?? 'quick';
+  const initLevel = initTrack === 'add_sub' && params.levelOrFormatId
+    ? parseInt(params.levelOrFormatId, 10)
+    : 1;
+  const initFormat = initTrack === 'mult' && params.levelOrFormatId
+    ? params.levelOrFormatId
+    : initTrack === 'div' && params.levelOrFormatId
+    ? params.levelOrFormatId
+    : 'mult_2d_1d';
 
-  function startDrill() {
+  const [selectedTrack, setSelectedTrack] = useState<Track>(initTrack);
+  const [selectedLevel, setSelectedLevel] = useState<number>(initLevel);
+  const [selectedFormat, setSelectedFormat] = useState<string>(initFormat);
+  const [selectedMode, setSelectedMode] = useState<Mode>(initMode);
+
+  function handleStart() {
+    const levelOrFormatId =
+      selectedTrack === 'add_sub' ? selectedLevel.toString() : selectedFormat;
     router.push({
       pathname: '/drill',
-      params: { level: selectedLevel, drillMode },
+      params: { track: selectedTrack, levelOrFormatId, mode: selectedMode },
     });
   }
 
@@ -36,315 +49,296 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* Header row: title + streak */}
-        <View style={styles.headerRow}>
-          <Text style={styles.title}>UCMAS Practice</Text>
-          <View style={styles.streakBadge}>
-            <Text style={styles.streakEmoji}>🔥</Text>
-            <Text style={styles.streakText}>0 days</Text>
-          </View>
+        {/* Title */}
+        <Text style={styles.title}>UCMAS Practice</Text>
+
+        {/* Track selector */}
+        <View style={styles.trackRow}>
+          {([
+            { key: 'add_sub', label: 'Add & Sub' },
+            { key: 'mult',    label: 'Multiply' },
+            { key: 'div',     label: 'Divide' },
+          ] as { key: Track; label: string }[]).map(({ key, label }) => (
+            <TouchableOpacity
+              key={key}
+              style={[styles.trackButton, selectedTrack === key && styles.trackButtonActive]}
+              onPress={() => {
+                setSelectedTrack(key);
+                if (key === 'mult') setSelectedFormat('mult_2d_1d');
+                else if (key === 'div') setSelectedFormat('div_3d_1d');
+              }}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.trackButtonText, selectedTrack === key && styles.trackButtonTextActive]}>
+                {label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        {/* Level selector */}
-        <Text style={styles.sectionLabel}>Select Level</Text>
-        <TouchableOpacity
-          style={styles.levelSelector}
-          onPress={() => setShowLevelPicker(true)}
-          activeOpacity={0.8}
-        >
-          <View style={styles.levelSelectorInner}>
-            <Text style={styles.levelSelectorText}>
-              Level {currentLevel.level} — {currentLevel.name}
+        {/* Level / Format picker */}
+        {selectedTrack === 'add_sub' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Select Level</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.levelRow}>
+              {ADD_SUB_LEVELS.map(level => (
+                <TouchableOpacity
+                  key={level.id}
+                  style={[styles.levelButton, selectedLevel === level.id && styles.levelButtonActive]}
+                  onPress={() => setSelectedLevel(level.id)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.levelButtonText, selectedLevel === level.id && styles.levelButtonTextActive]}>
+                    {level.id}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <Text style={styles.levelDescription}>
+              {ADD_SUB_LEVELS.find(l => l.id === selectedLevel)?.description}
             </Text>
-            {!currentLevel.isFree && <Text style={styles.lockIcon}>🔒</Text>}
           </View>
-          <Text style={styles.chevron}>▼</Text>
-        </TouchableOpacity>
+        )}
 
-        {/* Drill mode picker */}
-        <Text style={styles.sectionLabel}>Choose Mode</Text>
-        <View style={styles.modeRow}>
-          <TouchableOpacity
-            style={[styles.modeButton, drillMode === 'quick' && styles.modeButtonActive]}
-            onPress={() => setDrillMode('quick')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.modeIcon}>⚡</Text>
-            <Text style={[styles.modeTitle, drillMode === 'quick' && styles.modeTitleActive]}>
-              Quick Drill
-            </Text>
-            <Text style={[styles.modeDuration, drillMode === 'quick' && styles.modeDurationActive]}>
-              1 minute
-            </Text>
-          </TouchableOpacity>
+        {selectedTrack === 'mult' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Select Format</Text>
+            {MULT_FORMATS.map(fmt => (
+              <TouchableOpacity
+                key={fmt.id}
+                style={[styles.formatButton, selectedFormat === fmt.id && styles.formatButtonActive]}
+                onPress={() => setSelectedFormat(fmt.id)}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.formatButtonText, selectedFormat === fmt.id && styles.formatButtonTextActive]}>
+                  {fmt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
-          <TouchableOpacity
-            style={[styles.modeButton, drillMode === 'full' && styles.modeButtonActiveFull]}
-            onPress={() => setDrillMode('full')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.modeIcon}>🏋️</Text>
-            <Text style={[styles.modeTitle, drillMode === 'full' && styles.modeTitleActive]}>
-              Full Practice
-            </Text>
-            <Text style={[styles.modeDuration, drillMode === 'full' && styles.modeDurationActive]}>
-              8 minutes
-            </Text>
-          </TouchableOpacity>
+        {selectedTrack === 'div' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Select Format</Text>
+            {DIV_FORMATS.map(fmt => (
+              <TouchableOpacity
+                key={fmt.id}
+                style={[styles.formatButton, selectedFormat === fmt.id && styles.formatButtonActive]}
+                onPress={() => setSelectedFormat(fmt.id)}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.formatButtonText, selectedFormat === fmt.id && styles.formatButtonTextActive]}>
+                  {fmt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Mode selector */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Mode</Text>
+          <View style={styles.modeRow}>
+            <TouchableOpacity
+              style={[styles.modeButton, selectedMode === 'quick' && styles.modeButtonActive]}
+              onPress={() => setSelectedMode('quick')}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.modeButtonText, selectedMode === 'quick' && styles.modeButtonTextActive]}>
+                Quick Drill
+              </Text>
+              <Text style={[styles.modeDuration, selectedMode === 'quick' && styles.modeDurationActive]}>
+                2 min
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modeButton, selectedMode === 'full' && styles.modeButtonActiveFull]}
+              onPress={() => setSelectedMode('full')}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.modeButtonText, selectedMode === 'full' && styles.modeButtonTextActive]}>
+                Full Practice
+              </Text>
+              <Text style={[styles.modeDuration, selectedMode === 'full' && styles.modeDurationActive]}>
+                8 min
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Start button */}
-        <TouchableOpacity
-          style={styles.startButton}
-          onPress={startDrill}
-          activeOpacity={0.85}
-        >
+        <TouchableOpacity style={styles.startButton} onPress={handleStart} activeOpacity={0.85}>
           <Text style={styles.startButtonText}>Start!</Text>
         </TouchableOpacity>
 
       </ScrollView>
-
-      {/* Level picker modal */}
-      <Modal
-        visible={showLevelPicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowLevelPicker(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowLevelPicker(false)}
-        >
-          <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>Choose Level</Text>
-            <FlatList
-              data={levelConfig}
-              keyExtractor={item => String(item.level)}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.levelRow,
-                    item.level === selectedLevel && styles.levelRowSelected,
-                  ]}
-                  onPress={() => {
-                    setSelectedLevel(item.level);
-                    setShowLevelPicker(false);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[
-                    styles.levelRowText,
-                    item.level === selectedLevel && styles.levelRowTextSelected,
-                  ]}>
-                    Level {item.level} — {item.name}
-                  </Text>
-                  {!item.isFree && <Text style={styles.levelRowLock}>🔒</Text>}
-                  {item.level === selectedLevel && (
-                    <Text style={styles.levelRowCheck}>✓</Text>
-                  )}
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </SafeAreaView>
   );
 }
 
+const INDIGO = '#4F46E5';
+const GREEN  = '#4CAF50';
+const CARD   = '#1E1E2E';
+const BG     = '#0F0F1A';
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F0F1A',
+    backgroundColor: BG,
   },
   scroll: {
     paddingHorizontal: 24,
-    paddingVertical: 40,
+    paddingVertical: 36,
   },
 
-  // Header
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 40,
-  },
+  // Title
   title: {
     fontSize: 28,
     fontWeight: '800',
     color: '#FFFFFF',
-  },
-  streakBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1E1E2E',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    gap: 6,
-  },
-  streakEmoji: {
-    fontSize: 18,
-  },
-  streakText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FF9800',
+    marginBottom: 28,
   },
 
-  // Section labels
-  sectionLabel: {
+  // Track selector
+  trackRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 28,
+  },
+  trackButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: CARD,
+    alignItems: 'center',
+  },
+  trackButtonActive: {
+    backgroundColor: INDIGO,
+  },
+  trackButtonText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#888',
+  },
+  trackButtonTextActive: {
+    color: '#FFFFFF',
+  },
+
+  // Section wrapper
+  section: {
+    marginBottom: 28,
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: 12,
   },
 
-  // Level selector
-  levelSelector: {
-    backgroundColor: '#1E1E2E',
-    borderRadius: 16,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 36,
-  },
-  levelSelectorInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  // Level picker (horizontal scroll)
+  levelRow: {
     gap: 10,
+    paddingBottom: 4,
   },
-  levelSelectorText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
+  levelButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: CARD,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  lockIcon: {
+  levelButtonActive: {
+    backgroundColor: INDIGO,
+  },
+  levelButtonText: {
     fontSize: 18,
-  },
-  chevron: {
-    fontSize: 14,
+    fontWeight: '700',
     color: '#888',
   },
+  levelButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  levelDescription: {
+    marginTop: 12,
+    fontSize: 13,
+    color: '#666',
+    lineHeight: 18,
+  },
 
-  // Mode buttons
+  // Format list (vertical)
+  formatButton: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    backgroundColor: CARD,
+    marginBottom: 8,
+  },
+  formatButtonActive: {
+    backgroundColor: INDIGO,
+  },
+  formatButtonText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#AAA',
+  },
+  formatButtonTextActive: {
+    color: '#FFFFFF',
+  },
+
+  // Mode selector
   modeRow: {
     flexDirection: 'row',
-    gap: 16,
-    marginBottom: 48,
+    gap: 12,
   },
   modeButton: {
     flex: 1,
-    backgroundColor: '#1E1E2E',
-    borderRadius: 20,
-    paddingVertical: 28,
+    paddingVertical: 20,
+    borderRadius: 16,
+    backgroundColor: CARD,
     alignItems: 'center',
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: 'transparent',
-    gap: 6,
   },
   modeButtonActive: {
-    borderColor: '#4F46E5',
-    backgroundColor: '#1A1A3A',
+    borderColor: INDIGO,
   },
   modeButtonActiveFull: {
-    borderColor: '#4CAF50',
-    backgroundColor: '#1A3A1A',
+    borderColor: GREEN,
   },
-  modeIcon: {
-    fontSize: 36,
-    marginBottom: 4,
-  },
-  modeTitle: {
-    fontSize: 18,
+  modeButtonText: {
+    fontSize: 15,
     fontWeight: '700',
-    color: '#CCCCCC',
+    color: '#AAA',
   },
-  modeTitleActive: {
+  modeButtonTextActive: {
     color: '#FFFFFF',
   },
   modeDuration: {
-    fontSize: 14,
+    fontSize: 13,
+    color: '#555',
+    marginTop: 4,
     fontWeight: '500',
-    color: '#666',
   },
   modeDurationActive: {
-    color: '#AAAAAA',
+    color: '#AAA',
   },
 
   // Start button
   startButton: {
-    backgroundColor: '#4F46E5',
-    borderRadius: 20,
+    backgroundColor: INDIGO,
+    borderRadius: 18,
     paddingVertical: 22,
     alignItems: 'center',
-    shadowColor: '#4F46E5',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
+    marginTop: 8,
   },
   startButtonText: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: 1,
-  },
-
-  // Level picker modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  modalSheet: {
-    backgroundColor: '#1E1E2E',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingTop: 24,
-    paddingBottom: 40,
-    maxHeight: '70%',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 24,
-  },
-  levelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 18,
-    paddingHorizontal: 28,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2A2A3A',
-  },
-  levelRowSelected: {
-    backgroundColor: '#2A2A4A',
-  },
-  levelRowText: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#CCCCCC',
-  },
-  levelRowTextSelected: {
-    color: '#FFFFFF',
-  },
-  levelRowLock: {
-    fontSize: 16,
-    marginRight: 8,
-  },
-  levelRowCheck: {
-    fontSize: 18,
-    color: '#4F46E5',
-    fontWeight: '700',
   },
 });
