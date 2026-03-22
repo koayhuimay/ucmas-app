@@ -14,6 +14,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Problem } from '../lib/drillEngine';
 import { QuestionResult } from './drill';
 import { ADD_SUB_LEVELS, MULT_FORMATS, DIV_FORMATS } from '../lib/levelConfig';
+import { saveDrillSession } from '../lib/storage';
 
 interface DrillResults {
   results: QuestionResult[];
@@ -76,6 +77,24 @@ export default function ResultsScreen() {
   const avgTimeMs = results.reduce((sum, r) => sum + r.timeMs, 0) / results.length;
   const avgTimeSec = (avgTimeMs / 1000).toFixed(1);
   const mistakes = results.filter(r => !r.isCorrect);
+
+  React.useEffect(() => {
+    saveDrillSession({
+      track,
+      level: track === 'add_sub' ? parseInt(levelOrFormatId, 10) : null,
+      formatId: track !== 'add_sub' ? levelOrFormatId : null,
+      drillMode: mode as 'quick' | 'full',
+      totalQuestions,
+      correctCount,
+      accuracy,
+      timeSeconds: totalTimeSeconds,
+      mistakes: mistakes.map(r => ({
+        problemText: formatProblem(r.question.operands, r.question.operators),
+        userAnswer: r.userAnswer,
+        correctAnswer: r.correctAnswer,
+      })),
+    });
+  }, []);
 
   const accuracyColor =
     accuracy >= 80 ? '#4CAF50' : accuracy >= 60 ? '#FF9800' : '#F44336';
