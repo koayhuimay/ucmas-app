@@ -4,7 +4,7 @@
 Mobile drill app for UCMAS abacus math students aged 4–13.
 Stack: React Native + Expo SDK 54 + Expo Router + Supabase
 Location: ~/Documents/ucmas-app
-Blueprint: v1.3 (March 2026)
+Blueprint: v1.4 (March 2026)
 
 ## Environment
 - Apple Silicon Mac (M1/M2/M3/M4)
@@ -39,17 +39,17 @@ Phase 1B — Core Features (in progress)
 ```
 ucmas-app/
 ├── app/
-│   ├── index.tsx       ✅ Built — Home screen (needs update: three-track nav)
-│   ├── drill.tsx       ✅ Built — Drill screen (auto-submit, quit button, timer)
-│   └── results.tsx     ✅ Built — Results screen (accuracy ring, mistake review)
+│   ├── index.tsx       ✅ Built — Home screen (three-track nav, level/format picker, mode picker)
+│   ├── drill.tsx       ✅ Built — Drill screen (auto-submit, quit + confirm, timer, three-track support, dynamic content scaling)
+│   └── results.tsx     ✅ Built — Results screen (accuracy ring, mistake review, practice again)
 ├── components/
 │   ├── Keypad.tsx      ✅ Built — number input pad
 │   ├── Timer.tsx       ✅ Built — countdown timer with red warning
 │   ├── ScoreCard.tsx   🔲 Empty placeholder
 │   └── StreakBadge.tsx 🔲 Empty placeholder
 ├── lib/
-│   ├── drillEngine.ts  ✅ Built — Level 1 Add/Sub only (needs expansion)
-│   ├── levelConfig.ts  ✅ Built — old 10-level structure (needs update to v1.3)
+│   ├── drillEngine.ts  ✅ Built — all tracks (Add/Sub all 8 levels, Mult, Div)
+│   ├── levelConfig.ts  ✅ Built — v1.3 structure (8 Add/Sub levels + Mult/Div formats)
 │   └── supabase.ts     🔲 Empty placeholder
 ├── constants/
 │   ├── colors.ts       🔲 Empty placeholder
@@ -57,18 +57,27 @@ ucmas-app/
 ├── App.tsx.bak         ← Must stay as .bak, never rename back
 └── assets/
 ```
+## Recent Changes
+- drill.tsx: Problem content now scales dynamically using onLayout height measurement. fontSize, margins, and divider are all computed from available space. Works for 4-row to 10-row add/sub problems without overflow. No hardcoded font sizes in problem display.
+- levelConfig.ts: Updated to v1.3 — 8 Add/Sub levels + all Mult/Div format definitions
+- drillEngine.ts: Expanded to support all three tracks — Add/Sub (all 8 levels with section-based difficulty), Multiplication, and Division (whole-number answers only)
+- index.tsx: Three-track home screen navigation (Add/Sub | Mult | Div)
+- results.tsx: Accuracy ring, mistake review, practice again (preserves level/mode), back to home
 
 ## Phase 1B Tasks (in order)
-- [ ] Update levelConfig.ts — 8-level Add/Sub + all Mult/Div formats
-- [ ] Expand drillEngine.ts — all Add/Sub levels + Mult/Div generation
-- [ ] Update index.tsx — three-track navigation (Add/Sub | Mult | Div)
+- [x] Update levelConfig.ts — 8-level Add/Sub + all Mult/Div formats
+- [x] Expand drillEngine.ts — all Add/Sub levels + Mult/Div generation
+- [x] Update index.tsx — three-track navigation
+- [x] Fix drill.tsx layout — dynamic content scaling for all row counts
+- [ ] Timer & drill limits — Quick Drill: 2 min, no question cap. Full Practice: 8 min, 200 questions. Show "X answered" not "X/200".
 - [ ] Update results.tsx — format-specific accuracy display
-- [ ] Timer with level-appropriate limits
 - [ ] Local storage for offline functionality
+- [ ] Progress dashboard
 
 ## Drill Modes
-- Quick Drill: 2 minutes
-- Full Practice: 8 minutes (configurable: 10, 20, 50, or 100 problems)
+- Quick Drill: 2 minutes, no question cap — answer as many as possible before time runs out
+- Full Practice: 8 minutes, 200 questions — whichever ends first. Matches real UCMAS competition format.
+- UI: Show "X answered" not "X/200" — avoid intimidating younger kids
 
 ## Answer Auto-Submit Flow
 1. Problem displayed → kid types digits
@@ -101,6 +110,6 @@ Three tables:
 - Sound effects for correct/wrong/level-up (toggleable)
 
 ## Monetization
-- Free: Add/Sub Levels 1–3, Mult/Div: 2d×1d, 1d×2d, 3d÷1d. 10 drills/day.
+- Free: Add/Sub Levels 1–3, Mult/Div: 2d×1d, 1d×2d, 3d÷1d. 10 drills/day.`
 - Premium Monthly: $4.99/mo — all levels, all formats, unlimited drills, competition mode
 - Premium Yearly: $39.99/yr
