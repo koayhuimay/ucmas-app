@@ -41,7 +41,7 @@ ucmas-app/
 ├── app/
 │   ├── index.tsx       ✅ Built — Home screen (three-track nav, level/format picker, mode picker)
 │   ├── drill.tsx       ✅ Built — Drill screen (auto-submit, quit + confirm, timer, three-track support, dynamic content scaling)
-│   └── results.tsx     ✅ Built — Results screen (accuracy ring, mistake review, practice again)
+│   └── results.tsx     ✅ Built — Results screen (accuracy ring, drill label with level/format + mode, mistake review, practice again)
 ├── components/
 │   ├── Keypad.tsx      ✅ Built — number input pad
 │   ├── Timer.tsx       ✅ Built — countdown timer with red warning
@@ -58,6 +58,7 @@ ucmas-app/
 └── assets/
 ```
 ## Recent Changes
+- results.tsx: Header now shows drill label (e.g. "Level 3 — Add/Sub", "Multiply: 2-digit × 1-digit") and mode (Quick Drill / Full Practice). Score shows "X correct of Y answered".
 - drill.tsx: Problem content now scales dynamically using onLayout height measurement. fontSize, margins, and divider are all computed from available space. Works for 4-row to 10-row add/sub problems without overflow. No hardcoded font sizes in problem display.
 - levelConfig.ts: Updated to v1.3 — 8 Add/Sub levels + all Mult/Div format definitions
 - drillEngine.ts: Expanded to support all three tracks — Add/Sub (all 8 levels with section-based difficulty), Multiplication, and Division (whole-number answers only)
@@ -70,7 +71,7 @@ ucmas-app/
 - [x] Update index.tsx — three-track navigation
 - [x] Fix drill.tsx layout — dynamic content scaling for all row counts
 - [ ] Timer & drill limits — Quick Drill: 2 min, no question cap. Full Practice: 8 min, 200 questions. Show "X answered" not "X/200".
-- [ ] Update results.tsx — format-specific accuracy display
+- [x] Update results.tsx — drill label (level/format + mode), "X correct of Y answered"
 - [ ] Local storage for offline functionality
 - [ ] Progress dashboard
 
