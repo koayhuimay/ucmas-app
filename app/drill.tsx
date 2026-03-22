@@ -15,7 +15,10 @@ import Keypad from '../components/Keypad';
 import Timer from '../components/Timer';
 import { generateProblem, Problem } from '../lib/drillEngine';
 
-const TOTAL_QUESTIONS = 10;
+const MODE_QUESTIONS: Record<string, number> = {
+  quick: Infinity,
+  full: 200,
+};
 const MODE_SECONDS: Record<string, number> = {
   quick: 120,
   full: 480,
@@ -121,7 +124,8 @@ export default function DrillScreen() {
 
       const delay = isCorrect ? 300 : 500;
 
-      if (newTotal >= TOTAL_QUESTIONS) {
+      const maxQuestions = MODE_QUESTIONS[mode] ?? Infinity;
+      if (newTotal >= maxQuestions) {
         setTimeout(() => {
           endDrill(resultsRef.current, newCorrect);
         }, delay);
@@ -197,7 +201,7 @@ export default function DrillScreen() {
 
       {/* Score */}
       <Text style={styles.score}>
-        {score.correct} / {score.total}
+        {score.total} answered
       </Text>
 
       {/* Problem display — fills remaining space, centers the card */}
