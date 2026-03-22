@@ -13,6 +13,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Problem } from '../lib/drillEngine';
 import { QuestionResult } from './drill';
+import { ADD_SUB_LEVELS, MULT_FORMATS, DIV_FORMATS } from '../lib/levelConfig';
 
 interface DrillResults {
   results: QuestionResult[];
@@ -32,6 +33,22 @@ function formatProblem(operands: number[], operators: string[]): string {
     if (i === 0) return String(n);
     return `${operators[i - 1]} ${n}`;
   }).join('   ') + '   =   ?';
+}
+
+function getDrillLabel(track: string, levelOrFormatId: string): string {
+  if (track === 'add_sub') {
+    const level = ADD_SUB_LEVELS.find(l => l.id === parseInt(levelOrFormatId, 10));
+    return level ? `${level.name} — Add/Sub` : `Level ${levelOrFormatId}`;
+  }
+  if (track === 'mult') {
+    const fmt = MULT_FORMATS.find(f => f.id === levelOrFormatId);
+    return fmt ? `Multiply: ${fmt.label}` : 'Multiplication';
+  }
+  if (track === 'div') {
+    const fmt = DIV_FORMATS.find(f => f.id === levelOrFormatId);
+    return fmt ? `Divide: ${fmt.label}` : 'Division';
+  }
+  return 'Drill';
 }
 
 function formatTime(seconds: number): string {
@@ -70,7 +87,8 @@ export default function ResultsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <Text style={styles.header}>Drill Complete!</Text>
+        <Text style={styles.header}>{getDrillLabel(track, levelOrFormatId)}</Text>
+        <Text style={styles.subHeader}>{mode === 'quick' ? 'Quick Drill' : 'Full Practice'} — Complete!</Text>
 
         {/* Hero Accuracy Circle */}
         <View style={styles.circleContainer}>
@@ -81,7 +99,7 @@ export default function ResultsScreen() {
             <Text style={styles.accuracyLabel}>accuracy</Text>
           </View>
           <Text style={styles.correctCount}>
-            {correctCount} / {totalQuestions} correct
+            {correctCount} correct of {totalQuestions} answered
           </Text>
         </View>
 
@@ -172,6 +190,13 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     color: '#FFFFFF',
+    marginBottom: 8,
+  },
+  subHeader: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#888',
+    marginTop: -24,
     marginBottom: 32,
   },
 
