@@ -173,6 +173,15 @@ export default function HomeScreen() {
           <Text style={styles.startButtonText}>Start!</Text>
         </TouchableOpacity>
 
+        {/* Progress button */}
+        <TouchableOpacity
+          style={styles.progressButton}
+          onPress={() => router.push('/progress')}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.progressButtonText}>View Progress</Text>
+        </TouchableOpacity>
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -326,6 +335,21 @@ const styles = StyleSheet.create({
   },
   modeDurationActive: {
     color: '#AAA',
+  },
+
+  // Progress button
+  progressButton: {
+    borderWidth: 2,
+    borderColor: '#333',
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  progressButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#888',
   },
 
   // Start button
