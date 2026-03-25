@@ -41,7 +41,8 @@ ucmas-app/
 ├── app/
 │   ├── index.tsx       ✅ Built — Home screen (three-track nav, level/format picker, mode picker)
 │   ├── drill.tsx       ✅ Built — Drill screen (auto-submit, quit + confirm, timer, three-track support, dynamic content scaling)
-│   └── results.tsx     ✅ Built — Results screen (accuracy ring, drill label with level/format + mode, mistake review, practice again)
+│   ├── results.tsx     ✅ Built — Results screen (accuracy ring, drill label with level/format + mode, mistake review, practice again)
+│   └── progress.tsx    ✅ Built — Progress dashboard (daily accuracy ring, mode toggle, operation breakdown, streak, 7-day chart)
 ├── components/
 │   ├── Keypad.tsx      ✅ Built — number input pad
 │   ├── Timer.tsx       ✅ Built — countdown timer with red warning
@@ -59,6 +60,9 @@ ucmas-app/
 └── assets/
 ```
 ## Recent Changes
+- app/progress.tsx: New file — Progress Dashboard with hero accuracy ring, Quick Drill / Full Practice toggle, stats row (time + avg speed), operation breakdown bars, streak card, 7-day accuracy bar chart
+- app/index.tsx: Added "View Progress" button linking to progress screen
+- lib/stats.ts: New file — getTodayStats(), getStreak(), getWeeklyData() with mode filtering
 - results.tsx: Header now shows drill label (e.g. "Level 3 — Add/Sub", "Multiply: 2-digit × 1-digit") and mode (Quick Drill / Full Practice). Score shows "X correct of Y answered".
 - drill.tsx: Problem content now scales dynamically using onLayout height measurement. fontSize, margins, and divider are all computed from available space. Works for 4-row to 10-row add/sub problems without overflow. No hardcoded font sizes in problem display.
 - levelConfig.ts: Updated to v1.3 — 8 Add/Sub levels + all Mult/Div format definitions
@@ -74,7 +78,7 @@ ucmas-app/
 - [ ] Timer & drill limits — Quick Drill: 2 min, no question cap. Full Practice: 8 min, 200 questions. Show "X answered" not "X/200".
 - [x] Update results.tsx — drill label (level/format + mode), "X correct of Y answered"
 - [ ] Local storage for offline functionality
-- [ ] Progress dashboard
+- [x] Progress dashboard — daily stats, mode toggle (quick/full), operation breakdown, streak, 7-day trend chart
 
 ## Drill Modes
 - Quick Drill: 2 minutes, no question cap — answer as many as possible before time runs out
