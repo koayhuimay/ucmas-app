@@ -40,12 +40,12 @@ Phase 1B — Core Features (in progress)
 ucmas-app/
 ├── app/
 │   ├── index.tsx       ✅ Built — Home screen (three-track nav, level/format picker, mode picker)
-│   ├── drill.tsx       ✅ Built — Drill screen (auto-submit, quit + confirm, timer, three-track support, dynamic content scaling)
+│   ├── drill.tsx       ✅ Built — Drill screen (3-column carousel, top bar, progress bar timer, auto-submit, three-track support)
 │   ├── results.tsx     ✅ Built — Results screen (accuracy ring, drill label with level/format + mode, mistake review, practice again)
 │   └── progress.tsx    ✅ Built — Progress dashboard (daily accuracy ring, mode toggle, operation breakdown, streak, 7-day chart)
 ├── components/
-│   ├── Keypad.tsx      ✅ Built — number input pad
-│   ├── Timer.tsx       ✅ Built — countdown timer with red warning
+│   ├── Keypad.tsx      ✅ Built — 4×3 grid (explicit rows, no flexWrap), height = 1/3 screen, 40px bottom padding
+│   ├── Timer.tsx       ✅ Built — countdown timer with red warning (not used in drill screen — inline countdown instead)
 │   ├── ScoreCard.tsx   🔲 Empty placeholder
 │   └── StreakBadge.tsx 🔲 Empty placeholder
 ├── lib/
@@ -60,11 +60,16 @@ ucmas-app/
 └── assets/
 ```
 ## Recent Changes
+- components/Keypad.tsx: Rebuilt as 4×3 grid (7-8-9 / 4-5-6 / 1-2-3 / .-0-⌫) using explicit row Views (no flexWrap). Height = 1/3 screen height, 40px bottom padding for reachability.
+- app/drill.tsx: 3-column carousel — previous (left, 45% opacity), current (center, full), next (right, 45% opacity). Problems bottom-aligned, centered in column, numbers right-aligned within block. No divider line.
+- app/drill.tsx: Top bar compressed to single row — score (correct/total, 60px), drill label (flex:1, centered), quit ✕ (60px). Replaces old quit + timer + score layout.
+- app/drill.tsx: Timer component removed. Inline countdown via useEffect/setInterval drives a 4px progress bar between answer input and keyboard (green → orange at 25% → red at 10%).
+- app/drill.tsx: Font size auto-calculated from measured problemAreaHeight via onLayout, capped at 28px, sized to fit 10-row worst case.
+- app/drill.tsx: Answer input box — 210×62px, white 15% opacity background, 32px gold text, 24px gap above it.
 - app/progress.tsx: New file — Progress Dashboard with hero accuracy ring, Quick Drill / Full Practice toggle, stats row (time + avg speed), operation breakdown bars, streak card, 7-day accuracy bar chart
 - app/index.tsx: Added "View Progress" button linking to progress screen
 - lib/stats.ts: New file — getTodayStats(), getStreak(), getWeeklyData() with mode filtering
 - results.tsx: Header now shows drill label (e.g. "Level 3 — Add/Sub", "Multiply: 2-digit × 1-digit") and mode (Quick Drill / Full Practice). Score shows "X correct of Y answered".
-- drill.tsx: Problem content now scales dynamically using onLayout height measurement. fontSize, margins, and divider are all computed from available space. Works for 4-row to 10-row add/sub problems without overflow. No hardcoded font sizes in problem display.
 - levelConfig.ts: Updated to v1.3 — 8 Add/Sub levels + all Mult/Div format definitions
 - drillEngine.ts: Expanded to support all three tracks — Add/Sub (all 8 levels with section-based difficulty), Multiplication, and Division (whole-number answers only)
 - index.tsx: Three-track home screen navigation (Add/Sub | Mult | Div)

@@ -9,10 +9,10 @@ import {
   SafeAreaView,
   TouchableOpacity,
   Alert,
+  Dimensions,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Keypad from '../components/Keypad';
-import Timer from '../components/Timer';
 import { generateProblem, Problem } from '../lib/drillEngine';
 
 const MODE_QUESTIONS: Record<string, number> = {
@@ -40,24 +40,51 @@ export default function DrillScreen() {
   const mode = params.mode ?? 'quick';
   const totalSeconds = MODE_SECONDS[mode] ?? 120;
 
-  const [problem, setProblem] = useState<Problem | null>(null);
+  const [prevProblem, setPrevProblem] = useState<Problem | null>(null);
+  const [currentProblem, setCurrentProblem] = useState<Problem | null>(null);
+  const [nextProblem, setNextProblem] = useState<Problem | null>(null);
   const [input, setInput] = useState('');
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
   const [score, setScore] = useState({ correct: 0, total: 0 });
   const [timerRunning, setTimerRunning] = useState(false);
-  const [areaHeight, setAreaHeight] = useState(0);
+  const [problemAreaHeight, setProblemAreaHeight] = useState(0);
+  const [secondsLeft, setSecondsLeft] = useState(totalSeconds);
   const drillEndedRef = useRef(false);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const resultsRef = useRef<QuestionResult[]>([]);
   const questionStartRef = useRef<number>(Date.now());
   const drillStartRef = useRef<number>(Date.now());
 
-  // Generate first problem on load and start timer
+  // Generate first two problems on load and start timer
   useEffect(() => {
     drillStartRef.current = Date.now();
-    nextProblem();
+    const id = track === 'add_sub' ? parseInt(levelOrFormatId, 10) : levelOrFormatId;
+    setCurrentProblem(generateProblem(track, id));
+    setNextProblem(generateProblem(track, id));
     setTimerRunning(true);
   }, []);
+
+  // Countdown timer
+  useEffect(() => {
+    if (timerRunning) {
+      timerRef.current = setInterval(() => {
+        setSecondsLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(timerRef.current!);
+            handleTimeUp();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [timerRunning]);
 
   function endDrill(currentResults: typeof resultsRef.current, currentCorrect: number) {
     if (drillEndedRef.current) return;
@@ -86,9 +113,13 @@ export default function DrillScreen() {
     endDrill(current, correct);
   }
 
-  function nextProblem() {
+  // Advance carousel: prev ← current, current ← next, next ← fresh problem.
+  // Takes explicit values to avoid stale-closure issues when called from setTimeout.
+  function advanceProblem(prev: Problem, next: Problem | null) {
     const id = track === 'add_sub' ? parseInt(levelOrFormatId, 10) : levelOrFormatId;
-    setProblem(generateProblem(track, id));
+    setPrevProblem(prev);
+    setCurrentProblem(next);
+    setNextProblem(generateProblem(track, id));
     setInput('');
     setFeedback(null);
     questionStartRef.current = Date.now();
@@ -101,16 +132,16 @@ export default function DrillScreen() {
     setInput(newInput);
 
     // Auto-submit: check if digit count matches expected answer length
-    if (problem && newInput.length === problem.expectedDigits) {
-      const isCorrect = parseInt(newInput) === problem.answer;
+    if (currentProblem && newInput.length === currentProblem.expectedDigits) {
+      const isCorrect = parseInt(newInput) === currentProblem.answer;
       const timeMs = Date.now() - questionStartRef.current;
 
       resultsRef.current = [
         ...resultsRef.current,
         {
-          question: problem,
+          question: currentProblem,
           userAnswer: newInput,
-          correctAnswer: String(problem.answer),
+          correctAnswer: String(currentProblem.answer),
           isCorrect,
           timeMs,
         },
@@ -123,15 +154,19 @@ export default function DrillScreen() {
       setScore({ correct: newCorrect, total: newTotal });
 
       const delay = isCorrect ? 300 : 500;
-
       const maxQuestions = MODE_QUESTIONS[mode] ?? Infinity;
+
+      // Capture now to avoid stale closures inside setTimeout
+      const capturedCurrent = currentProblem;
+      const capturedNext = nextProblem;
+
       if (newTotal >= maxQuestions) {
         setTimeout(() => {
           endDrill(resultsRef.current, newCorrect);
         }, delay);
       } else {
         setTimeout(() => {
-          nextProblem();
+          advanceProblem(capturedCurrent, capturedNext);
         }, delay);
       }
     }
@@ -162,74 +197,104 @@ export default function DrillScreen() {
     setInput(prev => prev.slice(0, -1));
   }
 
-  if (!problem) return null;
+  if (!currentProblem) return null;
 
-  const rowCount = problem.operands.length;
-  const totalItems = track === 'add_sub' ? rowCount + 1 : 2;
-  const usableHeight = areaHeight > 0 ? areaHeight - 16 : 0;
+  // Drill label for top bar
+  const drillLabel =
+    track === 'add_sub'
+      ? `Level ${levelOrFormatId} • Add/Sub`
+      : track === 'mult'
+      ? `${levelOrFormatId} • Mult`
+      : `${levelOrFormatId} • Div`;
 
-  let fontSize: number;
-  let verticalMargin: number;
-  let dividerMargin: number;
+  // Font size from measured problem area height
+  const PROBLEM_FONT_SIZE = problemAreaHeight > 0
+    ? Math.min(28, Math.floor((problemAreaHeight - 62 - 24 - 10) / 14))
+    : 18;
 
-  if (usableHeight > 0) {
-    const raw = Math.floor((usableHeight - 10) / (totalItems * 1.3));
-    fontSize = Math.min(36, Math.max(14, raw));
-  } else {
-    fontSize = rowCount <= 4 ? 32 : rowCount <= 6 ? 24 : rowCount <= 8 ? 18 : 14;
+  const feedbackColor = feedback === 'correct' ? '#4CAF50' : feedback === 'wrong' ? '#F44336' : undefined;
+
+  // Progress bar color
+  const timePercent = secondsLeft / totalSeconds;
+  const barColor = timePercent > 0.45 ? '#4CAF50' : timePercent > 0.10 ? '#FF9800' : '#F44336';
+
+  function renderProblem(p: Problem, faded: boolean) {
+    const opacity = faded ? 0.45 : 1;
+    const color = faded ? '#666' : '#FFFFFF';
+    const textColor = (!faded && feedback)
+      ? (feedback === 'correct' ? '#4CAF50' : '#F44336')
+      : color;
+    const fs = PROBLEM_FONT_SIZE;
+
+    const content = track === 'add_sub' ? (
+      <>
+        {p.operands.map((operand, index) => (
+          <Text
+            key={index}
+            style={[styles.number, { fontSize: fs, marginVertical: 0, color: textColor, opacity }]}
+          >
+            {index === 0 ? `${operand}` : `${p.operators[index - 1]}${operand}`}
+          </Text>
+        ))}
+      </>
+    ) : (
+      <Text style={[styles.number, { fontSize: fs, marginVertical: 0, color: textColor, opacity }]}>
+        {`${p.operands[0]} ${p.operators[0]} ${p.operands[1]}`}
+      </Text>
+    );
+
+    return (
+      <View style={{ alignItems: 'flex-end' }}>
+        {content}
+      </View>
+    );
   }
-
-  verticalMargin = Math.max(1, Math.floor(fontSize * 0.06));
-  dividerMargin = Math.max(2, Math.floor(fontSize * 0.12));
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top section: quit button | timer (centered) | spacer */}
-      <View style={styles.topSection}>
-        <TouchableOpacity style={styles.quitButton} onPress={handleQuitPress} activeOpacity={0.7}>
-          <Text style={styles.quitIcon}>✕</Text>
-        </TouchableOpacity>
-        <View style={styles.timerWrapper}>
-          <Timer
-            totalSeconds={totalSeconds}
-            onTimeUp={handleTimeUp}
-            isRunning={timerRunning}
-          />
+      {/* Top bar — score | drill label | quit */}
+      <View style={styles.topBar}>
+        <Text style={styles.scoreText}>{score.correct}/{score.total}</Text>
+        <Text style={styles.drillLabel}>{drillLabel}</Text>
+        <View style={styles.quitWrapper}>
+          <TouchableOpacity style={styles.quitButton} onPress={handleQuitPress} activeOpacity={0.7}>
+            <Text style={styles.quitIcon}>✕</Text>
+          </TouchableOpacity>
         </View>
-        <View style={styles.topSpacer} />
       </View>
 
-      {/* Score */}
-      <Text style={styles.score}>
-        {score.total} answered
-      </Text>
+      {/* Problem display — 3-column carousel + answer row below */}
+      <View style={styles.problemArea} onLayout={(e) => setProblemAreaHeight(e.nativeEvent.layout.height)}>
+        <View style={styles.carousel}>
+          {/* Left column — previous problem (faded) */}
+          <View style={[styles.carouselColumn, styles.sideColumn]}>
+            {prevProblem && renderProblem(prevProblem, true)}
+          </View>
 
-      {/* Problem display — fills remaining space, centers the card */}
-      <View style={styles.problemArea} onLayout={e => setAreaHeight(e.nativeEvent.layout.height)}>
-        {(() => {
-          const feedbackColor = feedback === 'correct' ? '#4CAF50' : feedback === 'wrong' ? '#F44336' : undefined;
-          return (
-            <View style={styles.problemCard}>
-              {track === 'add_sub' ? (
-                <>
-                  {problem.operands.map((operand, index) => (
-                    <Text key={index} style={[styles.number, { fontSize, marginVertical: verticalMargin }, feedbackColor && { color: feedbackColor }]}>
-                      {index === 0 ? operand : `${problem.operators[index - 1]}${operand}`}
-                    </Text>
-                  ))}
-                  <View style={[styles.divider, { marginVertical: dividerMargin }]} />
-                </>
-              ) : (
-                <Text style={[styles.number, { fontSize, marginVertical: verticalMargin }, feedbackColor && { color: feedbackColor }]}>
-                  {`${problem.operands[0]} ${problem.operators[0]} ${problem.operands[1]}`}
-                </Text>
-              )}
-              <Text style={[styles.answerInput, { fontSize, marginVertical: verticalMargin }, feedbackColor && { color: feedbackColor }]}>
-                {input || '?'}
-              </Text>
-            </View>
-          );
-        })()}
+          {/* Center column — current problem (full visibility) */}
+          <View style={[styles.carouselColumn, styles.centerColumn]}>
+            {currentProblem && renderProblem(currentProblem, false)}
+          </View>
+
+          {/* Right column — next problem (faded) */}
+          <View style={[styles.carouselColumn, styles.sideColumn]}>
+            {nextProblem && renderProblem(nextProblem, true)}
+          </View>
+        </View>
+
+        {/* Answer input — below the carousel, centered under current problem */}
+        <View style={styles.answerRow}>
+          <View style={styles.answerBox}>
+            <Text style={[styles.answerInput, feedbackColor && { color: feedbackColor }]}>
+              {input || '?'}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Progress bar timer — between answer and keyboard */}
+      <View style={styles.progressBarContainer}>
+        <View style={[styles.progressBarFill, { width: `${timePercent * 100}%`, backgroundColor: barColor }]} />
       </View>
 
       {/* Keypad — always at the bottom */}
@@ -246,68 +311,99 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F0F1A',
     justifyContent: 'space-between',
   },
-  topSection: {
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-  },
-  timerWrapper: {
-    transform: [{ scale: 0.7 }],
-  },
-  topSpacer: {
-    width: 40,
-  },
-  score: {
-    fontSize: 20,
-    color: '#888',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  problemArea: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingVertical: 8,
   },
-  problemCard: {
-    backgroundColor: 'transparent',
-    alignItems: 'flex-end',
-    width: '100%',
-  },
-  keypadWrapper: {
-    paddingTop: 0,
-    paddingBottom: 0,
-  },
-  number: {
-    fontWeight: '700',
+  scoreText: {
+    fontSize: 18,
+    fontWeight: '600',
     color: '#FFFFFF',
+    width: 60,
   },
-  divider: {
-    height: 2,
-    backgroundColor: '#444',
-    alignSelf: 'stretch',
+  drillLabel: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#999',
+    textAlign: 'center',
   },
-  answerInput: {
-    fontWeight: '700',
-    color: '#FFD700',
+  quitWrapper: {
+    width: 60,
+    alignItems: 'flex-end',
   },
   quitButton: {
-    alignSelf: 'flex-start',
-    marginBottom: 8,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#1E1E2E',
     alignItems: 'center',
     justifyContent: 'center',
   },
   quitIcon: {
-    fontSize: 16,
+    fontSize: 24,
     color: '#666',
     fontWeight: '600',
+  },
+  problemArea: {
+    flex: 1,
+    overflow: 'hidden',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    justifyContent: 'flex-end',
+  },
+  carousel: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  carouselColumn: {
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  sideColumn: {
+    flex: 1,
+  },
+  centerColumn: {
+    flex: 1.5,
+    paddingHorizontal: 12,
+  },
+  answerRow: {
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  answerBox: {
+    width: 210,
+    height: 62,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  progressBarContainer: {
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  keypadWrapper: {
+    height: Dimensions.get('window').height / 3,
+  },
+  number: {
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  answerInput: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#FFD700',
   },
 });

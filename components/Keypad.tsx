@@ -3,46 +3,58 @@
 // Calls onPress with each digit, onDelete to remove last digit.
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 
 interface KeypadProps {
   onPress: (digit: string) => void;
   onDelete: () => void;
 }
 
-const keys = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '0'];
+const CONTAINER_HEIGHT = Dimensions.get('window').height / 3;
+
+const rows = [
+  ['7', '8', '9'],
+  ['4', '5', '6'],
+  ['1', '2', '3'],
+  ['.', '0', '⌫'],
+];
 
 export default function Keypad({ onPress, onDelete }: KeypadProps) {
   return (
     <View style={styles.container}>
-      {keys.map((key) => (
-        <TouchableOpacity
-          key={key}
-          style={styles.key}
-          onPress={() => onPress(key)}
-        >
-          <Text style={styles.keyText}>{key}</Text>
-        </TouchableOpacity>
+      {rows.map((row, rowIndex) => (
+        <View key={rowIndex} style={styles.row}>
+          {row.map((key) => (
+            <TouchableOpacity
+              key={key}
+              style={[styles.key, key === '⌫' && styles.deleteKey]}
+              onPress={() => (key === '⌫' ? onDelete() : onPress(key))}
+            >
+              <Text style={styles.keyText}>{key}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       ))}
-      <TouchableOpacity style={[styles.key, styles.deleteKey]} onPress={onDelete}>
-        <Text style={styles.keyText}>⌫</Text>
-      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    height: CONTAINER_HEIGHT,
+    paddingHorizontal: 6,
+    paddingTop: 4,
+    paddingBottom: 40,
+  },
+  row: {
+    flex: 1,
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 12,
-    paddingHorizontal: 24,
+    gap: 4,
   },
   key: {
-    width: 80,
-    height: 80,
-    borderRadius: 16,
+    flex: 1,
+    marginVertical: 2,
+    borderRadius: 10,
     backgroundColor: '#1E1E2E',
     justifyContent: 'center',
     alignItems: 'center',
@@ -51,7 +63,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2E1E1E',
   },
   keyText: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '600',
     color: '#FFFFFF',
   },
