@@ -2,6 +2,15 @@
 // Single source of truth for all level and format data.
 // Never hardcode level/format data in screens — always import from here.
 
+export interface Section {
+  rows: [number, number];           // [min, max] rows for this section
+  operandDigits: [number, number];  // [min, max] digit count per operand
+  maxAnswerDigits: number;          // answer must not exceed this many digits
+  minAnswerDigits?: number;
+  weight: number;
+  maxOperand?: number;              // optional cap on operand size (overrides natural max for digit count)
+}
+
 export interface AddSubLevel {
   id: number;
   name: string;
@@ -9,6 +18,7 @@ export interface AddSubLevel {
   rows: [number, number];          // [min, max] number of rows per problem
   maxAnswerDigits: number;
   description: string;
+  sections: Section[];
 }
 
 export interface MultFormat {
@@ -35,6 +45,11 @@ export const ADD_SUB_LEVELS: AddSubLevel[] = [
     rows: [4, 7],
     maxAnswerDigits: 1,
     description: 'Starting point. Single-digit operands and answers.',
+    sections: [
+      { rows: [4, 5], operandDigits: [1, 1], maxAnswerDigits: 1, weight: 1 },
+      { rows: [5, 6], operandDigits: [1, 1], maxAnswerDigits: 1, weight: 2 },
+      { rows: [6, 7], operandDigits: [1, 1], maxAnswerDigits: 1, weight: 2 },
+    ],
   },
   {
     id: 2,
@@ -43,6 +58,11 @@ export const ADD_SUB_LEVELS: AddSubLevel[] = [
     rows: [3, 7],
     maxAnswerDigits: 2,
     description: 'Answers can reach 2 digits (sums up to ~61).',
+    sections: [
+      { rows: [5, 6], operandDigits: [1, 1], maxAnswerDigits: 2, weight: 1 },
+      { rows: [6, 7], operandDigits: [1, 1], maxAnswerDigits: 2, weight: 2 },
+      { rows: [7, 8], operandDigits: [1, 1], maxAnswerDigits: 2, weight: 2 },
+    ],
   },
   {
     id: 3,
@@ -51,6 +71,11 @@ export const ADD_SUB_LEVELS: AddSubLevel[] = [
     rows: [3, 8],
     maxAnswerDigits: 3,
     description: '2-digit operands appear. Answers reach 3 digits.',
+    sections: [
+      { rows: [3, 4], operandDigits: [1, 1], maxAnswerDigits: 2, weight: 1 },
+      { rows: [5, 5], operandDigits: [1, 2], maxAnswerDigits: 3, weight: 2, maxOperand: 50 },
+      { rows: [7, 8], operandDigits: [1, 2], maxAnswerDigits: 2, weight: 2, maxOperand: 20 },
+    ],
   },
   {
     id: 4,
@@ -59,6 +84,11 @@ export const ADD_SUB_LEVELS: AddSubLevel[] = [
     rows: [4, 10],
     maxAnswerDigits: 3,
     description: 'Row count jumps to 10. Mix of 1-digit and 2-digit operands.',
+    sections: [
+      { rows: [10, 10], operandDigits: [1, 2], maxAnswerDigits: 2, weight: 1, maxOperand: 20 },
+      { rows: [6, 8],   operandDigits: [2, 2], maxAnswerDigits: 3, weight: 2, maxOperand: 50 },
+      { rows: [5, 5],   operandDigits: [2, 2], maxAnswerDigits: 3, weight: 1, maxOperand: 50 },
+    ],
   },
   {
     id: 5,
@@ -67,6 +97,11 @@ export const ADD_SUB_LEVELS: AddSubLevel[] = [
     rows: [5, 8],
     maxAnswerDigits: 3,
     description: 'Most operands are 2-digit. Heavier 2-digit problems.',
+    sections: [
+      { rows: [5, 5],   operandDigits: [2, 2], maxAnswerDigits: 3, weight: 1, minAnswerDigits: 2 },
+      { rows: [6, 8],   operandDigits: [2, 2], maxAnswerDigits: 3, weight: 3, minAnswerDigits: 2 },
+      { rows: [10, 10], operandDigits: [1, 2], maxAnswerDigits: 3, weight: 1, maxOperand: 50 },
+    ],
   },
   {
     id: 6,
@@ -75,6 +110,11 @@ export const ADD_SUB_LEVELS: AddSubLevel[] = [
     rows: [6, 10],
     maxAnswerDigits: 3,
     description: 'Long sequences of 2-digit numbers.',
+    sections: [
+      { rows: [8, 10],  operandDigits: [1, 2], maxAnswerDigits: 3, weight: 1 },
+      { rows: [6, 8],   operandDigits: [2, 2], maxAnswerDigits: 3, weight: 3, minAnswerDigits: 2 },
+      { rows: [10, 10], operandDigits: [2, 2], maxAnswerDigits: 3, weight: 1, minAnswerDigits: 2 },
+    ],
   },
   {
     id: 7,
@@ -83,6 +123,11 @@ export const ADD_SUB_LEVELS: AddSubLevel[] = [
     rows: [8, 10],
     maxAnswerDigits: 3,
     description: 'Peak 2-digit difficulty. 8–10 rows.',
+    sections: [
+      { rows: [8, 8],   operandDigits: [1, 3], maxAnswerDigits: 3, weight: 1, minAnswerDigits: 2 },
+      { rows: [9, 10],  operandDigits: [2, 2], maxAnswerDigits: 3, weight: 3, minAnswerDigits: 2 },
+      { rows: [9, 10],  operandDigits: [2, 2], maxAnswerDigits: 4, weight: 1, minAnswerDigits: 2 },
+    ],
   },
   {
     id: 8,
@@ -91,6 +136,11 @@ export const ADD_SUB_LEVELS: AddSubLevel[] = [
     rows: [8, 10],
     maxAnswerDigits: 4,
     description: '3-digit operands, decimal arithmetic, answers reach 4+ digits.',
+    // Note: Level 8 also has decimal sections in real worksheets. Decimal support will be added in a future update.
+    sections: [
+      { rows: [8, 8],   operandDigits: [3, 3], maxAnswerDigits: 4, weight: 1, minAnswerDigits: 2 },
+      { rows: [10, 10], operandDigits: [3, 3], maxAnswerDigits: 4, weight: 1, minAnswerDigits: 2 },
+    ],
   },
 ];
 

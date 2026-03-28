@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { getTodayStats, getStreak, DailyStats } from '../lib/stats';
+import { getTodayStats, getStreak, getWeeklyData, DailyStats, WeeklyData } from '../lib/stats';
 
 type Mode = 'quick' | 'full';
 
@@ -34,18 +34,21 @@ export default function ProgressScreen() {
   const [selectedMode, setSelectedMode] = useState<Mode>('quick');
   const [stats, setStats] = useState<DailyStats | null>(null);
   const [streak, setStreak] = useState<number>(0);
+  const [weekly, setWeekly] = useState<WeeklyData | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(
     async (mode: Mode) => {
       setLoading(true);
       try {
-        const [s, str] = await Promise.all([
+        const [s, str, w] = await Promise.all([
           getTodayStats(mode),
           getStreak(mode),
+          getWeeklyData(mode),
         ]);
         setStats(s);
         setStreak(str);
+        setWeekly(w);
       } finally {
         setLoading(false);
       }
@@ -172,6 +175,40 @@ export default function ProgressScreen() {
                 <Text style={styles.statLabel}>Avg Speed</Text>
               </View>
             </View>
+
+            {/* Weekly Trend */}
+            {weekly && weekly.days.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionHeader}>Last 7 Days</Text>
+                <View style={styles.chartContainer}>
+                  {[...weekly.days].reverse().map((day, i) => {
+                    const hasActivity = day.accuracy >= 0;
+                    const barHeight = hasActivity ? Math.max(day.accuracy * 1.2, 8) : 4;
+                    const color = hasActivity ? accuracyColor(day.accuracy) : '#2A2A3E';
+                    const dayLabel = new Date(day.date + 'T12:00:00').toLocaleDateString('en', { weekday: 'short' }).slice(0, 2);
+                    return (
+                      <View key={day.date} style={styles.chartColumn}>
+                        <Text style={styles.chartValue}>
+                          {hasActivity ? `${day.accuracy}%` : ''}
+                        </Text>
+                        <View style={styles.chartBarWrapper}>
+                          <View
+                            style={[
+                              styles.chartBar,
+                              {
+                                height: barHeight,
+                                backgroundColor: color,
+                              },
+                            ]}
+                          />
+                        </View>
+                        <Text style={styles.chartDayLabel}>{dayLabel}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
 
             {/* Operation Breakdown */}
             <View style={styles.section}>
@@ -402,6 +439,47 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#555',
     fontStyle: 'italic',
+  },
+
+  // Weekly chart
+  chartContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    backgroundColor: '#1E1E2E',
+    borderRadius: 16,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    height: 180,
+  },
+  chartColumn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    height: '100%',
+  },
+  chartValue: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#888',
+    marginBottom: 4,
+  },
+  chartBarWrapper: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    width: '100%',
+    alignItems: 'center',
+  },
+  chartBar: {
+    width: 24,
+    borderRadius: 6,
+    minHeight: 4,
+  },
+  chartDayLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#666',
+    marginTop: 8,
   },
 
   // Streak

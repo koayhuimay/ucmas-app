@@ -1,7 +1,7 @@
 // lib/drillEngine.ts
 // Generates all drill problems. Never generate problems inline in screens.
 
-import { ADD_SUB_LEVELS, MULT_FORMATS, DIV_FORMATS } from './levelConfig';
+import { ADD_SUB_LEVELS, MULT_FORMATS, DIV_FORMATS, Section } from './levelConfig';
 
 export interface Problem {
   operands: number[];    // add_sub: sequence of numbers. mult/div: [a, b]
@@ -31,41 +31,97 @@ function generateAddSubProblem(levelId: number): Problem {
   const level = ADD_SUB_LEVELS.find(l => l.id === levelId);
   if (!level) throw new Error(`Add/Sub level ${levelId} not found`);
 
-  const rowCount = randomInt(level.rows[0], level.rows[1]);
-  const operands: number[] = [];
-  const operators: string[] = [];
-  let runningTotal = 0;
-
-  for (let i = 0; i < rowCount; i++) {
-    const digits = randomInt(level.operandDigits[0], level.operandDigits[1]);
-    const operand = randomNumWithDigits(digits);
-
-    if (i === 0) {
-      operands.push(operand);
-      runningTotal = operand;
-    } else {
-      // Try subtraction only if result stays >= 1
-      const canSubtract = runningTotal - operand >= 1;
-      const subtract = canSubtract && Math.random() < 0.5;
-
-      if (subtract) {
-        operators.push('-');
-        operands.push(operand);
-        runningTotal -= operand;
-      } else {
-        operators.push('+');
-        operands.push(operand);
-        runningTotal += operand;
-      }
+  // Weighted random section pick
+  const totalWeight = level.sections.reduce((sum, s) => sum + s.weight, 0);
+  let roll = Math.random() * totalWeight;
+  let section = level.sections[0];
+  for (const s of level.sections) {
+    roll -= s.weight;
+    if (roll <= 0) {
+      section = s;
+      break;
     }
   }
 
-  return {
-    operands,
-    operators,
-    answer: runningTotal,
-    expectedDigits: countDigits(runningTotal),
-  };
+  const maxTotal = Math.pow(10, section.maxAnswerDigits) - 1;
+  const minAnswer = section.minAnswerDigits ? Math.pow(10, section.minAnswerDigits - 1) : 0;
+
+  let lastResult: Problem | null = null;
+
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const rowCount = randomInt(section.rows[0], section.rows[1]);
+    const operands: number[] = [];
+    const operators: string[] = [];
+    let runningTotal = 0;
+
+    for (let i = 0; i < rowCount; i++) {
+      const digits = randomInt(section.operandDigits[0], section.operandDigits[1]);
+      let minForDigits = digits === 1 ? 1 : Math.pow(10, digits - 1);
+      let maxForDigits = Math.pow(10, digits) - 1;
+
+      if (section.maxOperand !== undefined) {
+        maxForDigits = Math.min(maxForDigits, section.maxOperand);
+        if (minForDigits > maxForDigits) minForDigits = maxForDigits;
+      }
+
+      if (i === 0) {
+        const upper = Math.min(maxForDigits, maxTotal);
+        const n = upper >= minForDigits ? randomInt(minForDigits, upper) : minForDigits;
+        operands.push(n);
+        runningTotal = n;
+      } else {
+        const roomToAdd = maxTotal - runningTotal;
+        const roomToSub = runningTotal;
+
+        const canAdd = roomToAdd >= minForDigits;
+        const canSub = roomToSub >= minForDigits;
+
+        let isSubtract: boolean;
+        if (canAdd && canSub) {
+          isSubtract = Math.random() < 0.5;
+        } else if (canAdd) {
+          isSubtract = false;
+        } else if (canSub) {
+          isSubtract = true;
+        } else {
+          operands.push(1);
+          operators.push('+');
+          runningTotal += 1;
+          continue;
+        }
+
+        if (isSubtract) {
+          const maxSub = Math.min(maxForDigits, runningTotal);
+          const n = randomInt(minForDigits, maxSub);
+          operands.push(n);
+          operators.push('-');
+          runningTotal -= n;
+        } else {
+          const maxAdd = Math.min(maxForDigits, roomToAdd);
+          const n = randomInt(minForDigits, maxAdd);
+          operands.push(n);
+          operators.push('+');
+          runningTotal += n;
+        }
+      }
+    }
+
+    const answer = runningTotal;
+    lastResult = {
+      operands,
+      operators,
+      answer,
+      expectedDigits: answer === 0 ? 1 : countDigits(answer),
+    };
+
+    // Check if answer meets minimum digit requirement
+    if (answer >= minAnswer) {
+      return lastResult;
+    }
+  }
+
+  // All attempts failed — return last generated problem anyway
+  return lastResult!;
 }
 
 function generateMultProblem(formatId: string): Problem {
