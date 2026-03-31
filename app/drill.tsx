@@ -56,6 +56,21 @@ export default function DrillScreen() {
   const questionStartRef = useRef<number>(Date.now());
   const drillStartRef = useRef<number>(Date.now());
 
+  // TEMP: test problem generation — remove after testing
+  useEffect(() => {
+    console.log('--- MULT TEST ---');
+    for (let i = 0; i < 5; i++) {
+      const p = generateProblem('mult', 'mult_2d_1d');
+      console.log(`${p.operands[0]} × ${p.operands[1]} = ${p.answer}`);
+    }
+    console.log('--- DIV TEST ---');
+    const divFormats = ['div_3d_1d', 'div_4d_2d', 'div_5d_3d'];
+    for (const fmt of divFormats) {
+      const p = generateProblem('div', fmt);
+      console.log(`${p.operands[0]} ÷ ${p.operands[1]} = ${p.answer} (${fmt})`);
+    }
+  }, []);
+
   // Generate first two problems on load and start timer
   useEffect(() => {
     drillStartRef.current = Date.now();
@@ -238,9 +253,14 @@ export default function DrillScreen() {
         ))}
       </>
     ) : (
-      <Text style={[styles.number, { fontSize: fs, marginVertical: 0, color: textColor, opacity }]}>
-        {`${p.operands[0]} ${p.operators[0]} ${p.operands[1]}`}
-      </Text>
+      <>
+        <Text style={[styles.number, { fontSize: fs, marginVertical: 0, color: textColor, opacity }]}>
+          {`${p.operands[0]}`}
+        </Text>
+        <Text style={[styles.number, { fontSize: fs, marginVertical: 0, color: textColor, opacity }]}>
+          {`${p.operators[0]}${p.operands[1]}`}
+        </Text>
+      </>
     );
 
     return (

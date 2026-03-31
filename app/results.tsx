@@ -183,7 +183,7 @@ export default function ResultsScreen() {
         {/* Back to Home */}
         <TouchableOpacity
           style={styles.secondaryButton}
-          onPress={() => router.replace('/')}
+          onPress={() => router.replace({ pathname: '/', params: { track, levelOrFormatId, mode } })}
           activeOpacity={0.7}
         >
           <Text style={styles.secondaryButtonText}>Back to Home</Text>

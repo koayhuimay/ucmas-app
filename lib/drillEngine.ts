@@ -128,9 +128,13 @@ function generateMultProblem(formatId: string): Problem {
   const format = MULT_FORMATS.find(f => f.id === formatId);
   if (!format) throw new Error(`Mult format "${formatId}" not found`);
 
-  const multiplicand = randomNumWithDigits(format.multiplicandDigits);
-  const multiplier = randomNumWithDigits(format.multiplierDigits);
+  let multiplicand = randomNumWithDigits(format.multiplicandDigits);
+  let multiplier = randomNumWithDigits(format.multiplierDigits);
   const answer = multiplicand * multiplier;
+
+  if ((format.id === 'mult_2d_1d' || format.id === 'mult_3d_1d') && Math.random() < 0.5) {
+    [multiplicand, multiplier] = [multiplier, multiplicand];
+  }
 
   return {
     operands: [multiplicand, multiplier],
@@ -145,7 +149,9 @@ function generateDivProblem(formatId: string): Problem {
   if (!format) throw new Error(`Div format "${formatId}" not found`);
 
   for (let attempt = 0; attempt < 100; attempt++) {
-    const answer = randomNumWithDigits(format.maxAnswerDigits);
+    const minAnsDigits = format.minAnswerDigits ?? format.maxAnswerDigits;
+    const ansDigits = randomInt(minAnsDigits, format.maxAnswerDigits);
+    const answer = randomNumWithDigits(ansDigits);
     const divisor = randomNumWithDigits(format.divisorDigits);
     const dividend = answer * divisor;
 

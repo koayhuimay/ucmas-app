@@ -35,6 +35,7 @@ export interface DivFormat {
   dividendDigits: number;
   divisorDigits: number;
   maxAnswerDigits: number;
+  minAnswerDigits?: number;
 }
 
 export const ADD_SUB_LEVELS: AddSubLevel[] = [
@@ -153,24 +154,10 @@ export const MULT_FORMATS: MultFormat[] = [
     maxAnswerDigits: 3,
   },
   {
-    id: 'mult_1d_2d',
-    label: '1-digit × 2-digit',
-    multiplicandDigits: 1,
-    multiplierDigits: 2,
-    maxAnswerDigits: 3,
-  },
-  {
     id: 'mult_3d_1d',
     label: '3-digit × 1-digit',
     multiplicandDigits: 3,
     multiplierDigits: 1,
-    maxAnswerDigits: 4,
-  },
-  {
-    id: 'mult_1d_3d',
-    label: '1-digit × 3-digit',
-    multiplicandDigits: 1,
-    multiplierDigits: 3,
     maxAnswerDigits: 4,
   },
   {
@@ -210,6 +197,7 @@ export const DIV_FORMATS: DivFormat[] = [
     dividendDigits: 3,
     divisorDigits: 1,
     maxAnswerDigits: 3,
+    minAnswerDigits: 2,
   },
   {
     id: 'div_4d_1d',
@@ -217,6 +205,7 @@ export const DIV_FORMATS: DivFormat[] = [
     dividendDigits: 4,
     divisorDigits: 1,
     maxAnswerDigits: 3,
+    minAnswerDigits: 2,
   },
   {
     id: 'div_4d_2d',
@@ -224,6 +213,7 @@ export const DIV_FORMATS: DivFormat[] = [
     dividendDigits: 4,
     divisorDigits: 2,
     maxAnswerDigits: 3,
+    minAnswerDigits: 2,
   },
   {
     id: 'div_5d_2d',
@@ -231,5 +221,14 @@ export const DIV_FORMATS: DivFormat[] = [
     dividendDigits: 5,
     divisorDigits: 2,
     maxAnswerDigits: 3,
+    minAnswerDigits: 2,
+  },
+  {
+    id: 'div_5d_3d',
+    label: '5-digit ÷ 3-digit',
+    dividendDigits: 5,
+    divisorDigits: 3,
+    maxAnswerDigits: 3,
+    minAnswerDigits: 2,
   },
 ];

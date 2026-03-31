@@ -1,7 +1,7 @@
 // app/index.tsx
 // Home screen: three-track navigation, level/format picker, mode selector, start button.
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,21 +20,22 @@ export default function HomeScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ track?: string; levelOrFormatId?: string; mode?: string }>();
 
-  const initTrack = (params.track as Track) ?? 'add_sub';
-  const initMode = (params.mode as Mode) ?? 'quick';
-  const initLevel = initTrack === 'add_sub' && params.levelOrFormatId
-    ? parseInt(params.levelOrFormatId, 10)
-    : 1;
-  const initFormat = initTrack === 'mult' && params.levelOrFormatId
-    ? params.levelOrFormatId
-    : initTrack === 'div' && params.levelOrFormatId
-    ? params.levelOrFormatId
-    : 'mult_2d_1d';
+  const [selectedTrack, setSelectedTrack] = useState<Track>('add_sub');
+  const [selectedLevel, setSelectedLevel] = useState<number>(1);
+  const [selectedFormat, setSelectedFormat] = useState<string>('mult_2d_1d');
+  const [selectedMode, setSelectedMode] = useState<Mode>('quick');
 
-  const [selectedTrack, setSelectedTrack] = useState<Track>(initTrack);
-  const [selectedLevel, setSelectedLevel] = useState<number>(initLevel);
-  const [selectedFormat, setSelectedFormat] = useState<string>(initFormat);
-  const [selectedMode, setSelectedMode] = useState<Mode>(initMode);
+  useEffect(() => {
+    if (params.track) setSelectedTrack(params.track as Track);
+    if (params.mode) setSelectedMode(params.mode as Mode);
+    if (params.levelOrFormatId) {
+      if (params.track === 'add_sub') {
+        setSelectedLevel(parseInt(params.levelOrFormatId) || 1);
+      } else if (params.track === 'mult' || params.track === 'div') {
+        setSelectedFormat(params.levelOrFormatId);
+      }
+    }
+  }, [params.track, params.mode, params.levelOrFormatId]);
 
   function handleStart() {
     const levelOrFormatId =

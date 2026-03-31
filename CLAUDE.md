@@ -49,7 +49,7 @@ ucmas-app/
 │   ├── ScoreCard.tsx   🔲 Empty placeholder
 │   └── StreakBadge.tsx 🔲 Empty placeholder
 ├── lib/
-│   ├── drillEngine.ts  ✅ Built — all tracks (Add/Sub all 8 levels, Mult, Div)
+│   ├── drillEngine.ts  ✅ Built — Section-based problem generation for all 8 Add/Sub levels. Each level has weighted sections with configurable operand ranges, answer digit constraints, and maxOperand caps. Supports minAnswerDigits with retry mechanism.
 │   ├── levelConfig.ts  ✅ Built — v1.3 structure (8 Add/Sub levels + Mult/Div formats)
 │   ├── storage.ts          ✅ Built — AsyncStorage helper (save/get/clear drill history, mode filtering)
 │   └── supabase.ts     🔲 Empty placeholder
@@ -77,7 +77,7 @@ ucmas-app/
 
 ## Phase 1B Tasks (in order)
 - [x] Update levelConfig.ts — 8-level Add/Sub + all Mult/Div formats
-- [x] Expand drillEngine.ts — all Add/Sub levels + Mult/Div generation
+- [x] Expand drillEngine.ts — all Add/Sub levels (section-based difficulty) + Mult/Div generation
 - [x] Update index.tsx — three-track navigation
 - [x] Fix drill.tsx layout — dynamic content scaling for all row counts
 - [ ] Timer & drill limits — Quick Drill: 2 min, no question cap. Full Practice: 8 min, 200 questions. Show "X answered" not "X/200".
