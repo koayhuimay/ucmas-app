@@ -4,7 +4,7 @@
 Mobile drill app for UCMAS abacus math students aged 4–13.
 Stack: React Native + Expo SDK 54 + Expo Router + Supabase
 Location: ~/Documents/ucmas-app
-Blueprint: v1.4 (March 2026)
+Blueprint: v1.7 (frozen)
 
 ## Environment
 - Apple Silicon Mac (M1/M2/M3/M4)
@@ -49,8 +49,8 @@ ucmas-app/
 │   ├── ScoreCard.tsx   🔲 Empty placeholder
 │   └── StreakBadge.tsx 🔲 Empty placeholder
 ├── lib/
-│   ├── drillEngine.ts  ✅ Built — Section-based problem generation for all 8 Add/Sub levels. Each level has weighted sections with configurable operand ranges, answer digit constraints, and maxOperand caps. Supports minAnswerDigits with retry mechanism.
-│   ├── levelConfig.ts  ✅ Built — v1.3 structure (8 Add/Sub levels + Mult/Div formats)
+│   ├── drillEngine.ts  ✅ Built — All tracks: Add/Sub (section-based, 8 levels), Mult (6 formats, operand swap), Div (5 formats, whole-number answers)
+│   ├── levelConfig.ts  ✅ Built — 8 Add/Sub levels (section-based), 6 mult formats, 5 div formats (v1.5 structure)
 │   ├── storage.ts          ✅ Built — AsyncStorage helper (save/get/clear drill history, mode filtering)
 │   └── supabase.ts     🔲 Empty placeholder
 ├── constants/
@@ -60,6 +60,11 @@ ucmas-app/
 └── assets/
 ```
 ## Recent Changes
+- levelConfig.ts: Removed symmetric mult formats (8→6), added div_5d_3d (4→5), added minAnswerDigits to DivFormat interface
+- drillEngine.ts: Mult operand order randomized for merged formats (mult_2d_1d, mult_3d_1d). Div answer digit count picks from minAnswerDigits–maxAnswerDigits range.
+- drill.tsx: Mult/div problems render vertically (like add/sub) for carousel consistency
+- index.tsx: Reads route params to restore previous track/format/mode selection after drill. Fixed ForwardRef render warning.
+- results.tsx: Passes track/levelOrFormatId/mode back to home screen on both navigation paths
 - components/Keypad.tsx: Rebuilt as 4×3 grid (7-8-9 / 4-5-6 / 1-2-3 / .-0-⌫) using explicit row Views (no flexWrap). Height = 1/3 screen height, 40px bottom padding for reachability.
 - app/drill.tsx: 3-column carousel — previous (left, 45% opacity), current (center, full), next (right, 45% opacity). Problems bottom-aligned, centered in column, numbers right-aligned within block. No divider line.
 - app/drill.tsx: Top bar compressed to single row — score (correct/total, 60px), drill label (flex:1, centered), quit ✕ (60px). Replaces old quit + timer + score layout.
@@ -80,10 +85,15 @@ ucmas-app/
 - [x] Expand drillEngine.ts — all Add/Sub levels (section-based difficulty) + Mult/Div generation
 - [x] Update index.tsx — three-track navigation
 - [x] Fix drill.tsx layout — dynamic content scaling for all row counts
-- [ ] Timer & drill limits — Quick Drill: 2 min, no question cap. Full Practice: 8 min, 200 questions. Show "X answered" not "X/200".
+- [x] Timer & drill limits — Quick Drill: 2 min, no question cap. Full Practice: 8 min, 200 questions. Show "X answered" not "X/200".
 - [x] Update results.tsx — drill label (level/format + mode), "X correct of Y answered"
-- [ ] Local storage for offline functionality
+- [x] Local storage for offline functionality
 - [x] Progress dashboard — daily stats, mode toggle (quick/full), operation breakdown, streak, 7-day trend chart
+- [x] Mult engine — 6 formats, randomized operand order for merged pairs (2d×1d, 3d×1d)
+- [x] Div engine — 5 formats including 5d÷3d, whole-number answers, minAnswerDigits answer range
+- [x] levelConfig.ts updated to v1.5 format structure (merged symmetric mult, added div_5d_3d)
+- [x] Mult/Div vertical display layout (consistent with add/sub)
+- [x] Home screen state persistence (returns to previous track/format/mode after drill)
 
 ## Drill Modes
 - Quick Drill: 2 minutes, no question cap — answer as many as possible before time runs out
@@ -121,6 +131,6 @@ Three tables:
 - Sound effects for correct/wrong/level-up (toggleable)
 
 ## Monetization
-- Free: Add/Sub Levels 1–3, Mult/Div: 2d×1d, 1d×2d, 3d÷1d. 10 drills/day.`
+- Free: Add/Sub Levels 1–3, Mult/Div: 2d×1d, 3d÷1d. 10 drills/day.
 - Premium Monthly: $4.99/mo — all levels, all formats, unlimited drills, competition mode
 - Premium Yearly: $39.99/yr
