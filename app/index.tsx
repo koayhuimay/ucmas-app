@@ -150,7 +150,7 @@ export default function HomeScreen() {
                 Quick Drill
               </Text>
               <Text style={[styles.modeDuration, selectedMode === 'quick' && styles.modeDurationActive]}>
-                2 min
+                1 min
               </Text>
             </TouchableOpacity>
 

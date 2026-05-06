@@ -20,7 +20,7 @@ const MODE_QUESTIONS: Record<string, number> = {
   full: 200,
 };
 const MODE_SECONDS: Record<string, number> = {
-  quick: 120,
+  quick: 60,
   full: 480,
 };
 
@@ -38,7 +38,7 @@ export default function DrillScreen() {
   const track = (params.track ?? 'add_sub') as 'add_sub' | 'mult' | 'div';
   const levelOrFormatId = params.levelOrFormatId ?? '1';
   const mode = params.mode ?? 'quick';
-  const totalSeconds = MODE_SECONDS[mode] ?? 120;
+  const totalSeconds = MODE_SECONDS[mode] ?? 60;
 
   const [prevProblem, setPrevProblem] = useState<Problem | null>(null);
   const [currentProblem, setCurrentProblem] = useState<Problem | null>(null);

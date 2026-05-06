@@ -85,7 +85,7 @@ ucmas-app/
 - [x] Expand drillEngine.ts — all Add/Sub levels (section-based difficulty) + Mult/Div generation
 - [x] Update index.tsx — three-track navigation
 - [x] Fix drill.tsx layout — dynamic content scaling for all row counts
-- [x] Timer & drill limits — Quick Drill: 2 min, no question cap. Full Practice: 8 min, 200 questions. Show "X answered" not "X/200".
+- [x] Timer & drill limits — Quick Drill: 1 min, no question cap. Full Practice: 8 min, 200 questions. Show "X answered" not "X/200".
 - [x] Update results.tsx — drill label (level/format + mode), "X correct of Y answered"
 - [x] Local storage for offline functionality
 - [x] Progress dashboard — daily stats, mode toggle (quick/full), operation breakdown, streak, 7-day trend chart
@@ -96,7 +96,7 @@ ucmas-app/
 - [x] Home screen state persistence (returns to previous track/format/mode after drill)
 
 ## Drill Modes
-- Quick Drill: 2 minutes, no question cap — answer as many as possible before time runs out
+- Quick Drill: 1 minute, no question cap — answer as many as possible before time runs out
 - Full Practice: 8 minutes, 200 questions — whichever ends first. Matches real UCMAS competition format.
 - UI: Show "X answered" not "X/200" — avoid intimidating younger kids
 
