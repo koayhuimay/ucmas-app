@@ -18,9 +18,15 @@ import { Problem } from '../lib/drillEngine';
 import { QuestionResult } from './drill';
 import { ADD_SUB_LEVELS, MULT_FORMATS, DIV_FORMATS } from '../lib/levelConfig';
 import { saveDrillSession } from '../lib/storage';
+import { formatNum } from '../lib/format';
 
-const CARD_WIDTH = 200;
 const CARD_GAP = 12;
+const CARD_PADDING_H = 16;
+const OPERATOR_COL_W = 28;
+const ANSWER_LABEL_COL_W = 48;
+const DIGIT_W = 14; // approximate per-char width at fontSize 22 with tabular-nums
+const MIN_OPERAND_COL_W = 70;
+const OPERAND_COL_PAD = 6;
 
 interface DrillResults {
   results: QuestionResult[];
@@ -65,30 +71,40 @@ function formatTime(seconds: number): string {
   return `${s}s`;
 }
 
-function MistakeCard({ result }: { result: QuestionResult }) {
+function MistakeCard({
+  result,
+  cardWidth,
+  operandColWidth,
+}: {
+  result: QuestionResult;
+  cardWidth: number;
+  operandColWidth: number;
+}) {
   const { operands, operators } = result.question;
   return (
-    <View style={styles.mistakeCard}>
+    <View style={[styles.mistakeCard, { width: cardWidth }]}>
       <View style={styles.problemBlock}>
         {operands.map((n, i) => (
           <View key={i} style={styles.operandRow}>
             <Text style={styles.operatorCol}>
               {i === 0 ? '' : operators[i - 1]}
             </Text>
-            <Text style={styles.operandCol}>{n}</Text>
+            <Text style={[styles.operandCol, { minWidth: operandColWidth }]}>
+              {formatNum(n)}
+            </Text>
           </View>
         ))}
-        <View style={styles.divider} />
+        <View style={[styles.divider, { width: operandColWidth + 14 }]} />
         <View style={styles.operandRow}>
-          <Text style={styles.answerLabelCol}>Your</Text>
-          <Text style={[styles.operandCol, styles.wrongAnswer]}>
-            {result.userAnswer}
+          <Text style={styles.answerLabelCol} numberOfLines={1}>Your</Text>
+          <Text style={[styles.operandCol, styles.wrongAnswer, { minWidth: operandColWidth }]}>
+            {formatNum(result.userAnswer)}
           </Text>
         </View>
         <View style={styles.operandRow}>
-          <Text style={styles.answerLabelCol}>Ans</Text>
-          <Text style={[styles.operandCol, styles.correctAnswer]}>
-            {result.correctAnswer}
+          <Text style={styles.answerLabelCol} numberOfLines={1}>Ans</Text>
+          <Text style={[styles.operandCol, styles.correctAnswer, { minWidth: operandColWidth }]}>
+            {formatNum(result.correctAnswer)}
           </Text>
         </View>
       </View>
@@ -115,10 +131,22 @@ export default function ResultsScreen() {
   const avgTimeSec = (avgTimeMs / 1000).toFixed(1);
   const mistakes = results.filter(r => !r.isCorrect);
 
+  const maxStrLen = mistakes.length > 0
+    ? Math.max(
+        ...mistakes.flatMap(m => [
+          ...m.question.operands.map(n => formatNum(n).length),
+          formatNum(m.userAnswer).length,
+          formatNum(m.correctAnswer).length,
+        ])
+      )
+    : 1;
+  const operandColWidth = Math.max(MIN_OPERAND_COL_W, maxStrLen * DIGIT_W + OPERAND_COL_PAD);
+  const cardWidth = CARD_PADDING_H * 2 + ANSWER_LABEL_COL_W + operandColWidth;
+
   const [activeMistake, setActiveMistake] = useState(0);
 
   const onMomentumScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const idx = Math.round(e.nativeEvent.contentOffset.x / (CARD_WIDTH + CARD_GAP));
+    const idx = Math.round(e.nativeEvent.contentOffset.x / (cardWidth + CARD_GAP));
     setActiveMistake(Math.max(0, Math.min(mistakes.length - 1, idx)));
   };
 
@@ -163,7 +191,7 @@ export default function ResultsScreen() {
             <Text style={styles.accuracyLabel}>accuracy</Text>
           </View>
           <Text style={styles.correctCount}>
-            {correctCount} correct of {totalQuestions} answered
+            {formatNum(correctCount)} correct of {formatNum(totalQuestions)} answered
           </Text>
         </View>
 
@@ -190,10 +218,16 @@ export default function ResultsScreen() {
             <FlatList
               data={mistakes}
               keyExtractor={(_, i) => `mistake-${i}`}
-              renderItem={({ item }) => <MistakeCard result={item} />}
+              renderItem={({ item }) => (
+                <MistakeCard
+                  result={item}
+                  cardWidth={cardWidth}
+                  operandColWidth={operandColWidth}
+                />
+              )}
               horizontal
               showsHorizontalScrollIndicator={false}
-              snapToInterval={CARD_WIDTH + CARD_GAP}
+              snapToInterval={cardWidth + CARD_GAP}
               decelerationRate="fast"
               onMomentumScrollEnd={onMomentumScrollEnd}
               ItemSeparatorComponent={() => <View style={{ width: CARD_GAP }} />}
@@ -279,6 +313,7 @@ const styles = StyleSheet.create({
   accuracyPercent: {
     fontSize: 44,
     fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   accuracyLabel: {
     fontSize: 14,
@@ -290,6 +325,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#CCC',
     fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
 
   // Stats row
@@ -317,6 +353,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: '#FFFFFF',
+    fontVariant: ['tabular-nums'],
   },
   statLabel: {
     fontSize: 12,
@@ -346,11 +383,11 @@ const styles = StyleSheet.create({
     paddingRight: 24,
   },
   mistakeCard: {
-    width: CARD_WIDTH,
     backgroundColor: '#1E1E2E',
     borderRadius: 12,
     paddingVertical: 18,
-    paddingHorizontal: 16,
+    paddingHorizontal: CARD_PADDING_H,
+    justifyContent: 'flex-end',
   },
   problemBlock: {
     alignSelf: 'center',
@@ -362,16 +399,15 @@ const styles = StyleSheet.create({
     marginVertical: 1,
   },
   operatorCol: {
-    width: 36,
+    width: OPERATOR_COL_W,
     textAlign: 'right',
-    paddingRight: 10,
+    paddingRight: 8,
     fontSize: 22,
     fontWeight: '600',
     color: '#888',
     fontVariant: ['tabular-nums'],
   },
   operandCol: {
-    minWidth: 90,
     textAlign: 'right',
     fontSize: 22,
     fontWeight: '700',
@@ -379,10 +415,10 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   answerLabelCol: {
-    width: 36,
+    width: ANSWER_LABEL_COL_W,
     textAlign: 'right',
     paddingRight: 10,
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
     color: '#888',
     textTransform: 'uppercase',
@@ -390,7 +426,6 @@ const styles = StyleSheet.create({
   },
   divider: {
     alignSelf: 'flex-end',
-    width: 110,
     height: 1,
     backgroundColor: '#333',
     marginVertical: 6,

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { getTodayStats, getStreak, getWeeklyData, DailyStats, WeeklyData } from '../lib/stats';
+import { formatNum } from '../lib/format';
 
 type Mode = 'quick' | 'full';
 
@@ -152,7 +153,7 @@ export default function ProgressScreen() {
               </View>
               <Text style={styles.correctCount}>
                 {hasData
-                  ? `${stats!.totalCorrect} correct of ${stats!.totalQuestions} answered`
+                  ? `${formatNum(stats!.totalCorrect)} correct of ${formatNum(stats!.totalQuestions)} answered`
                   : 'No drills yet today'}
               </Text>
             </View>
@@ -346,6 +347,7 @@ const styles = StyleSheet.create({
   accuracyPercent: {
     fontSize: 44,
     fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   accuracyLabel: {
     fontSize: 14,
@@ -362,6 +364,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#CCC',
     fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
 
   // Stats row
@@ -389,6 +392,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: '#FFFFFF',
+    fontVariant: ['tabular-nums'],
   },
   statLabel: {
     fontSize: 12,
@@ -424,6 +428,7 @@ const styles = StyleSheet.create({
   breakdownAccuracy: {
     fontSize: 14,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   barTrack: {
     height: 8,
@@ -463,6 +468,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#888',
     marginBottom: 4,
+    fontVariant: ['tabular-nums'],
   },
   chartBarWrapper: {
     flex: 1,
@@ -500,6 +506,7 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '800',
     color: '#FF9800',
+    fontVariant: ['tabular-nums'],
   },
   streakLabel: {
     fontSize: 16,

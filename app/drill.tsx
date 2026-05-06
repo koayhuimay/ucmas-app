@@ -14,6 +14,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Keypad from '../components/Keypad';
 import { generateProblem, Problem } from '../lib/drillEngine';
+import { formatNum } from '../lib/format';
 
 const MODE_QUESTIONS: Record<string, number> = {
   quick: Infinity,
@@ -240,32 +241,42 @@ export default function DrillScreen() {
       ? (feedback === 'correct' ? '#4CAF50' : '#F44336')
       : color;
     const fs = PROBLEM_FONT_SIZE;
+    const opColW = Math.round(fs * 1.0);
+    const opPadR = Math.round(fs * 0.25);
+    const digitW = fs * 0.6;
+    const maxLen = Math.max(...p.operands.map(o => formatNum(o).length));
+    const operandColW = Math.ceil(maxLen * digitW);
 
-    const content = track === 'add_sub' ? (
-      <>
-        {p.operands.map((operand, index) => (
-          <Text
-            key={index}
-            style={[styles.number, { fontSize: fs, marginVertical: 0, color: textColor, opacity }]}
-          >
-            {index === 0 ? `${operand}` : `${p.operators[index - 1]}${operand}`}
-          </Text>
-        ))}
-      </>
-    ) : (
-      <>
-        <Text style={[styles.number, { fontSize: fs, marginVertical: 0, color: textColor, opacity }]}>
-          {`${p.operands[0]}`}
-        </Text>
-        <Text style={[styles.number, { fontSize: fs, marginVertical: 0, color: textColor, opacity }]}>
-          {`${p.operators[0]}${p.operands[1]}`}
-        </Text>
-      </>
-    );
+    const rows: { op: string; val: number }[] =
+      track === 'add_sub'
+        ? p.operands.map((val, i) => ({ op: i === 0 ? '' : p.operators[i - 1], val }))
+        : [
+            { op: '', val: p.operands[0] },
+            { op: p.operators[0], val: p.operands[1] },
+          ];
 
     return (
       <View style={{ alignItems: 'flex-end' }}>
-        {content}
+        {rows.map((row, i) => (
+          <View key={i} style={styles.problemRow}>
+            <Text
+              style={[
+                styles.operatorCell,
+                { width: opColW, paddingRight: opPadR, fontSize: fs, color: textColor, opacity },
+              ]}
+            >
+              {row.op}
+            </Text>
+            <Text
+              style={[
+                styles.number,
+                { minWidth: operandColW, fontSize: fs, marginVertical: 0, color: textColor, opacity },
+              ]}
+            >
+              {formatNum(row.val)}
+            </Text>
+          </View>
+        ))}
       </View>
     );
   }
@@ -306,7 +317,7 @@ export default function DrillScreen() {
         <View style={styles.answerRow}>
           <View style={styles.answerBox}>
             <Text style={[styles.answerInput, feedbackColor && { color: feedbackColor }]}>
-              {input || '?'}
+              {input ? formatNum(input) : '?'}
             </Text>
           </View>
         </View>
@@ -343,6 +354,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
     width: 60,
+    fontVariant: ['tabular-nums'],
   },
   drillLabel: {
     flex: 1,
@@ -420,10 +432,23 @@ const styles = StyleSheet.create({
   number: {
     fontWeight: '700',
     color: '#FFFFFF',
+    fontVariant: ['tabular-nums'],
+    textAlign: 'right',
+  },
+  problemRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'flex-end',
+  },
+  operatorCell: {
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'right',
   },
   answerInput: {
     fontSize: 32,
     fontWeight: '700',
     color: '#FFD700',
+    fontVariant: ['tabular-nums'],
   },
 });
