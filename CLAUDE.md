@@ -52,7 +52,7 @@ ucmas-app/
 │   ├── drillEngine.ts  ✅ Built — All tracks: Add/Sub (section-based, 8 levels), Mult (6 formats, operand swap), Div (5 formats, whole-number answers)
 │   ├── levelConfig.ts  ✅ Built — 8 Add/Sub levels (section-based), 6 mult formats, 5 div formats (v1.5 structure)
 │   ├── storage.ts      ✅ Built — AsyncStorage helper (save/get/clear drill history, mode filtering)
-│   ├── stats.ts        ✅ Built — getTodayStats(), getStreak(), getWeeklyData(), computeCpm(), getBestRecord() (Quick Drill personal best, CPM + accuracy tiebreaker)
+│   ├── stats.ts        ✅ Built — getTodayStats(), getStreak() with qualifying-session rule, getWeeklyData() (timezone-correct), computeCpm(), getBestRecord() (Quick Drill personal best, CPM + accuracy tiebreaker)
 │   ├── format.ts       ✅ Built — formatNum() (toLocaleString thousands separators) + tabularNums style
 │   └── supabase.ts     🔲 Empty placeholder
 ├── constants/
@@ -62,6 +62,9 @@ ucmas-app/
 └── assets/
 ```
 ## Recent Changes
+- index.tsx: Home title row now shows a streak flame badge (🔥 N) on the right when the user has an active streak. Loaded via useFocusEffect so it refreshes after returning from a drill.
+- lib/stats.ts: Streak now requires a qualifying session per day — STREAK_MIN_QUESTIONS=10 AND STREAK_MIN_ACCURACY=50 — exported as constants and gated via qualifiesForStreak() helper. Days with only sub-threshold sessions don't count.
+- lib/stats.ts: Fixed timezone bug — isToday(), getStreak(), and getWeeklyData() previously mixed UTC date slices (from completedAt.slice(0, 10)) with local-time date keys (from formatDateKey(new Date())). All three now use formatDateKey(new Date(s.completedAt)) so both sides use device-local time. Affected users in any UTC offset (e.g. KL +8) doing early-morning drills.
 - results.tsx: Quick Drill mode now shows CPM (correct per minute) as gold hero metric, with "X correct · Y% accuracy" subtext and personal-best line ("First record!" / "New best!" / "Best: Z CPM @ W%"). Previous best is read BEFORE saving the current session to avoid self-comparison.
 - lib/stats.ts: New computeCpm(correctCount, timeSeconds) and getBestRecord(track, levelOrFormatId) → BestRecord | null. BestRecord = { cpm, accuracy }. Ranking is lexicographic (CPM desc, accuracy desc) so equal CPMs are tiebroken by accuracy.
 - results.tsx: Full Practice mode shows 4-tier verdict badge (DISTINCTION ≥90% gold / CREDIT ≥80% / PASSED ≥70% green / NOT YET <70% orange) with "X% accuracy · Y of 200 answered" subtext. Replaces accuracy ring + "Quick Drill — Complete!" subtitle for Full Practice.
@@ -160,10 +163,10 @@ Stars / 1–3 ratings were rejected as too abstract — kids have to translate s
 Personal-best record is keyed by `(track, levelOrFormatId)` and derived from drill history in AsyncStorage (later: synced via Supabase).
 
 ## Gamification (Phase 1C)
-- Daily streak counter with flame icon
+- Daily streak counter with flame icon — ✅ home badge shipped. Qualifying session required per day: ≥10 questions answered AND ≥50% accuracy in a single session (configurable via STREAK_MIN_QUESTIONS / STREAK_MIN_ACCURACY in lib/stats.ts).
 - Achievement badges (e.g. "100 Drills", "Perfect Score", "7-Day Streak", "First Pass")
 - Sound effects for correct/wrong/level-up (toggleable)
-- Personal-best celebrations (Quick Drill new CPM record)
+- Personal-best celebrations (Quick Drill new CPM record) — ✅ shipped
 - (Stars removed — replaced by mode-specific hero metric, see Results Display)
 
 ## Monetization

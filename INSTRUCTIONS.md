@@ -51,7 +51,8 @@ These are locked in. Don't re-ask or re-debate:
 14. **Practice Mistakes Mode (Phase 2):** Accumulated wrong answers (15–20 threshold) populate a Quick Drill from mistake pool. Same UI, same flow. Requires Supabase.
 15. **Digit display rules:** All digit displays use thousands separators (en-US locale) and `fontVariant: ['tabular-nums']` for consistent column alignment. Operators (+/−/×/÷) sit in their own fixed-width column so they align vertically across rows. Live answer input is formatted on display only — raw digits drive the auto-submit logic.
 16. **Mistake review UI:** Horizontal snap-paged FlatList of cards (data-driven width, sized to longest formatted number). Each card shows the problem in vertical-math format with operator + operand columns, divider, then color-coded "Your" (red) and "Ans" (green) rows. Practice Again / Back to Home are pinned in a fixed bottom bar above the safe-area inset.
-17. **Results hero metric is mode-specific (no stars):**
+17. **Streak qualification rule:** A day counts toward the streak only if at least one session that day has **≥10 questions answered AND ≥50% accuracy**. Reasoning: pure "did they open the app" is too lax (1-question gaming), pure accuracy gates penalize learning days, pure question count rewards random tapping. Combined gate teaches kids that BOTH effort and quality matter. Thresholds live in `lib/stats.ts` as `STREAK_MIN_QUESTIONS` / `STREAK_MIN_ACCURACY`, configurable as the user base shifts. Streak shows on home screen as 🔥 N badge and on the progress dashboard.
+18. **Results hero metric is mode-specific (no stars):**
     - **Full Practice** → 4-tier verdict badge by accuracy:
       - ≥90% **DISTINCTION** (gold)
       - ≥80% **CREDIT** (green)
@@ -80,7 +81,7 @@ ucmas-app/
 │   ├── drillEngine.ts      ✅ Built — All tracks: Add/Sub (section-based, 8 levels), Mult (6 formats, operand swap), Div (5 formats, whole-number answers)
 │   ├── levelConfig.ts      ✅ Built — 8 Add/Sub levels (section-based), 6 mult formats, 5 div formats (v1.5 structure)
 │   ├── storage.ts          ✅ Built — AsyncStorage helper (save/get/clear drill history, mode filtering)
-│   ├── stats.ts            ✅ Built — getTodayStats(), getStreak(), getWeeklyData() with mode filtering
+│   ├── stats.ts            ✅ Built — getTodayStats(), getStreak() (with qualifying-session rule), getWeeklyData() (timezone-correct), computeCpm(), getBestRecord()
 │   ├── format.ts           ✅ Built — formatNum() (thousands separators) + tabularNums style
 │   └── supabase.ts         🔲 Empty placeholder
 ├── constants/
@@ -196,6 +197,9 @@ Then paste all code files back in (see current code in Blueprint or previous cha
 - [x]  Results screen compaction — removed accuracy ring chrome + "Quick Drill — Complete!" subtitle; collapsed mistake review header into single line
 - [x]  Full Practice 4-tier verdict (Distinction / Credit / Passed / Not Yet) using UCMAS 70%/80%/90% bands
 - [x]  Quick Drill CPM hero + personal-best tracking — `getBestRecord()` in `lib/stats.ts`, lexicographic CPM/accuracy tiebreaker, displays "First record!" / "New best!" / "Best: Z CPM @ W%"
+- [x]  Home screen streak flame badge (🔥 N) — refreshes via `useFocusEffect` on return from drills
+- [x]  Streak qualification rule — day only counts if at least one session has ≥10 questions answered AND ≥50% accuracy (`STREAK_MIN_QUESTIONS` / `STREAK_MIN_ACCURACY` in `lib/stats.ts`)
+- [x]  Timezone bug fix in `lib/stats.ts` — `isToday()`, `getStreak()`, `getWeeklyData()` no longer mix UTC date slices with local-time keys
 
 ### Not Yet Started
 - [ ]  Supabase integration (auth + 3 tables: profiles, drill_sessions, drill_answers)

@@ -1,7 +1,7 @@
 // app/index.tsx
 // Home screen: three-track navigation, level/format picker, mode selector, start button.
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,9 @@ import {
   StyleSheet,
   SafeAreaView,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { ADD_SUB_LEVELS, MULT_FORMATS, DIV_FORMATS } from '../lib/levelConfig';
+import { getStreak } from '../lib/stats';
 
 type Track = 'add_sub' | 'mult' | 'div';
 type Mode = 'quick' | 'full';
@@ -24,6 +25,13 @@ export default function HomeScreen() {
   const [selectedLevel, setSelectedLevel] = useState<number>(1);
   const [selectedFormat, setSelectedFormat] = useState<string>('mult_2d_1d');
   const [selectedMode, setSelectedMode] = useState<Mode>('quick');
+  const [streak, setStreak] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      getStreak().then(setStreak);
+    }, [])
+  );
 
   useEffect(() => {
     if (params.track) setSelectedTrack(params.track as Track);
@@ -50,8 +58,16 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* Title */}
-        <Text style={styles.title}>UCMAS Practice</Text>
+        {/* Title row */}
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>UCMAS Practice</Text>
+          {streak > 0 && (
+            <View style={styles.streakBadge}>
+              <Text style={styles.streakFlame}>🔥</Text>
+              <Text style={styles.streakNum}>{streak}</Text>
+            </View>
+          )}
+        </View>
 
         {/* Track selector */}
         <View style={styles.trackRow}>
@@ -203,12 +219,35 @@ const styles = StyleSheet.create({
     paddingVertical: 36,
   },
 
-  // Title
+  // Title row
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 28,
+  },
   title: {
     fontSize: 28,
     fontWeight: '800',
     color: '#FFFFFF',
-    marginBottom: 28,
+  },
+  streakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#1E1E2E',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  streakFlame: {
+    fontSize: 18,
+  },
+  streakNum: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FF9800',
+    fontVariant: ['tabular-nums'],
   },
 
   // Track selector

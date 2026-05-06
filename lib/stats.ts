@@ -75,7 +75,7 @@ export function formatDateKey(date: Date): string {
 }
 
 export function isToday(isoString: string): boolean {
-  return isoString.slice(0, 10) === formatDateKey(new Date());
+  return formatDateKey(new Date(isoString)) === formatDateKey(new Date());
 }
 
 function getSessionLabel(session: DrillSession): string {
@@ -168,6 +168,19 @@ export async function getTodayStats(
   }
 }
 
+// A day counts toward the streak only if it contains at least one session that
+// meets BOTH bars — encourages real engagement (questions attempted) AND
+// quality (accuracy). Tunable as kids' average level shifts.
+export const STREAK_MIN_QUESTIONS = 10;
+export const STREAK_MIN_ACCURACY = 50;
+
+export function qualifiesForStreak(s: DrillSession): boolean {
+  return (
+    s.totalQuestions >= STREAK_MIN_QUESTIONS &&
+    s.accuracy >= STREAK_MIN_ACCURACY
+  );
+}
+
 export async function getStreak(
   modeFilter?: 'quick' | 'full'
 ): Promise<number> {
@@ -175,11 +188,13 @@ export async function getStreak(
     const history = await getDrillHistory(modeFilter);
     if (history.length === 0) return 0;
 
-    // Collect unique date keys
+    // Only days with at least one qualifying session count toward the streak.
     const dateSet = new Set<string>();
     for (const s of history) {
-      dateSet.add(s.completedAt.slice(0, 10));
+      if (!qualifiesForStreak(s)) continue;
+      dateSet.add(formatDateKey(new Date(s.completedAt)));
     }
+    if (dateSet.size === 0) return 0;
 
     const today = formatDateKey(new Date());
     const hasToday = dateSet.has(today);
@@ -218,7 +233,7 @@ export async function getWeeklyData(
     for (let i = 0; i < 7; i++) {
       const dateKey = formatDateKey(cursor);
       const daySessions = history.filter(
-        s => s.completedAt.slice(0, 10) === dateKey
+        s => formatDateKey(new Date(s.completedAt)) === dateKey
       );
 
       if (daySessions.length === 0) {
