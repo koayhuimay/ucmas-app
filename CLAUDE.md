@@ -51,7 +51,9 @@ ucmas-app/
 ├── lib/
 │   ├── drillEngine.ts  ✅ Built — All tracks: Add/Sub (section-based, 8 levels), Mult (6 formats, operand swap), Div (5 formats, whole-number answers)
 │   ├── levelConfig.ts  ✅ Built — 8 Add/Sub levels (section-based), 6 mult formats, 5 div formats (v1.5 structure)
-│   ├── storage.ts          ✅ Built — AsyncStorage helper (save/get/clear drill history, mode filtering)
+│   ├── storage.ts      ✅ Built — AsyncStorage helper (save/get/clear drill history, mode filtering)
+│   ├── stats.ts        ✅ Built — getTodayStats(), getStreak(), getWeeklyData() with mode filtering
+│   ├── format.ts       ✅ Built — formatNum() (toLocaleString thousands separators) + tabularNums style
 │   └── supabase.ts     🔲 Empty placeholder
 ├── constants/
 │   ├── colors.ts       🔲 Empty placeholder
@@ -60,6 +62,11 @@ ucmas-app/
 └── assets/
 ```
 ## Recent Changes
+- lib/format.ts: New shared util — formatNum() applies thousands separators via toLocaleString('en-US'); tabularNums TextStyle helper
+- drill.tsx: Problems now render as operator + operand columns (fixed-width op col, right-aligned operand col with minWidth = max digit string × 0.6 × fontSize). Operators align vertically across rows; operand right edges align. Live answer input formats with separators (raw input still drives auto-submit). Tabular-nums on number/answerInput/scoreText.
+- results.tsx: Mistake review redesigned — horizontal FlatList of snap-paged cards (data-driven width: 32 padding + 48 label col + operandColWidth from max formatted-string length × 14). Each card vertical-math layout with operator col (28px) + operand col, divider, Your/Ans rows. "Mistake X of N" counter updates on momentum scroll. Practice Again / Back to Home moved out of ScrollView into fixed bottom bar above safe-area inset. Tabular digits + separators on stats and mistake cards (system font, not monospace).
+- progress.tsx: Tabular digits across stats (accuracy %, correctCount, statValue, breakdownAccuracy, chartValue, streakCount); separators on cumulative correct/answered counts.
+- drill.tsx: Quick Drill 2 min → 1 min (MODE_SECONDS.quick = 60)
 - levelConfig.ts: Removed symmetric mult formats (8→6), added div_5d_3d (4→5), added minAnswerDigits to DivFormat interface
 - drillEngine.ts: Mult operand order randomized for merged formats (mult_2d_1d, mult_3d_1d). Div answer digit count picks from minAnswerDigits–maxAnswerDigits range.
 - drill.tsx: Mult/div problems render vertically (like add/sub) for carousel consistency
