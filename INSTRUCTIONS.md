@@ -83,6 +83,8 @@ ucmas-app/
 │   ├── storage.ts          ✅ Built — AsyncStorage helper (save/get/clear drill history, mode filtering)
 │   ├── stats.ts            ✅ Built — getTodayStats(), getStreak() (with qualifying-session rule), getWeeklyData() (timezone-correct), computeCpm(), getBestRecord()
 │   ├── format.ts           ✅ Built — formatNum() (thousands separators) + tabularNums style
+│   ├── settings.ts         ✅ Built — getSoundEnabled() / setSoundEnabled() (AsyncStorage, default ON)
+│   ├── sounds.ts           ✅ Built — play(name) helper backed by expo-av (slots wired, asset files TBD)
 │   └── supabase.ts         🔲 Empty placeholder
 ├── constants/
 │   ├── colors.ts           🔲 Empty placeholder
@@ -200,14 +202,18 @@ Then paste all code files back in (see current code in Blueprint or previous cha
 - [x]  Home screen streak flame badge (🔥 N) — refreshes via `useFocusEffect` on return from drills
 - [x]  Streak qualification rule — day only counts if at least one session has ≥10 questions answered AND ≥50% accuracy (`STREAK_MIN_QUESTIONS` / `STREAK_MIN_ACCURACY` in `lib/stats.ts`)
 - [x]  Timezone bug fix in `lib/stats.ts` — `isToday()`, `getStreak()`, `getWeeklyData()` no longer mix UTC date slices with local-time keys
+- [x]  Sound effects infrastructure — `expo-av`, `lib/sounds.ts`, `lib/settings.ts`, on/off toggle in home title row, triggers wired for correct / wrong / drill-end / new-best (asset files still to be sourced)
 
 ### Not Yet Started
+- [ ]  Drop sound files into `assets/sounds/` and uncomment matching SOUND_MODULES lines in `lib/sounds.ts`
 - [ ]  Supabase integration (auth + 3 tables: profiles, drill_sessions, drill_answers)
 - [ ]  Google Sign-In (optional, prompted after 3rd drill)
-- [ ]  Gamification (streaks UI polish, stars 1–3 per drill, achievement badges, sound effects)
 - [ ]  Practice Mistakes mode (requires Supabase)
 - [ ]  Freemium paywall (free tier limits + premium gating)
 - [ ]  App Store / Play Store submission
+
+### Deferred to Phase 2
+- Achievement badges (definitions file, unlock logic, badge gallery screen)
 
 ## ATTACHED FILES
 

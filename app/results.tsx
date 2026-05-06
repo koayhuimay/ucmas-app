@@ -18,6 +18,7 @@ import { ADD_SUB_LEVELS, MULT_FORMATS, DIV_FORMATS } from '../lib/levelConfig';
 import { saveDrillSession } from '../lib/storage';
 import { computeCpm, getBestRecord, BestRecord } from '../lib/stats';
 import { formatNum } from '../lib/format';
+import { play as playSound } from '../lib/sounds';
 
 const CARD_GAP = 12;
 const CARD_PADDING_H = 16;
@@ -159,11 +160,26 @@ export default function ResultsScreen() {
     (async () => {
       // Read previous best BEFORE saving the current session, otherwise the
       // current drill is included in the lookup and we'd never see "New best!"
+      let beatBest = false;
       if (mode === 'quick') {
         const best = await getBestRecord(track, levelOrFormatId);
         setPrevBest(best);
+        if (best === null) {
+          beatBest = currentCpm > 0;
+        } else {
+          const prevRounded = Math.round(best.cpm);
+          beatBest =
+            currentCpm > prevRounded ||
+            (currentCpm === prevRounded && accuracy > best.accuracy);
+        }
       } else {
         setPrevBest(null);
+      }
+      // End-of-drill chime first; if it's a new best, layer the celebration
+      // a moment later so the two sounds don't collide.
+      playSound('drillEnd');
+      if (beatBest) {
+        setTimeout(() => playSound('newBest'), 600);
       }
       await saveDrillSession({
         track,

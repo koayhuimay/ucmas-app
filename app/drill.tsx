@@ -15,6 +15,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import Keypad from '../components/Keypad';
 import { generateProblem, Problem } from '../lib/drillEngine';
 import { formatNum } from '../lib/format';
+import { play as playSound } from '../lib/sounds';
 
 const MODE_QUESTIONS: Record<string, number> = {
   quick: Infinity,
@@ -168,6 +169,7 @@ export default function DrillScreen() {
 
       setFeedback(isCorrect ? 'correct' : 'wrong');
       setScore({ correct: newCorrect, total: newTotal });
+      playSound(isCorrect ? 'correct' : 'wrong');
 
       const delay = isCorrect ? 300 : 500;
       const maxQuestions = MODE_QUESTIONS[mode] ?? Infinity;

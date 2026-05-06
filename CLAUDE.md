@@ -54,6 +54,8 @@ ucmas-app/
 │   ├── storage.ts      ✅ Built — AsyncStorage helper (save/get/clear drill history, mode filtering)
 │   ├── stats.ts        ✅ Built — getTodayStats(), getStreak() with qualifying-session rule, getWeeklyData() (timezone-correct), computeCpm(), getBestRecord() (Quick Drill personal best, CPM + accuracy tiebreaker)
 │   ├── format.ts       ✅ Built — formatNum() (toLocaleString thousands separators) + tabularNums style
+│   ├── settings.ts     ✅ Built — getSoundEnabled() / setSoundEnabled() (AsyncStorage, default ON)
+│   ├── sounds.ts       ✅ Built — play(name) helper backed by expo-av; 4 slots (correct/wrong/drillEnd/newBest) wired but unfilled — drop assets and uncomment SOUND_MODULES line to enable
 │   └── supabase.ts     🔲 Empty placeholder
 ├── constants/
 │   ├── colors.ts       🔲 Empty placeholder
@@ -62,6 +64,7 @@ ucmas-app/
 └── assets/
 ```
 ## Recent Changes
+- Sound effects infra (no asset files yet): expo-av installed; lib/sounds.ts plays correct/wrong/drillEnd/newBest via a typed play() helper (lazy-load + cache, no-ops gracefully when a slot is unwired); lib/settings.ts persists sound on/off (default ON). Triggers wired in drill.tsx (correct/wrong) and results.tsx (drillEnd; newBest fired 600ms later when Quick Drill beats prev best). Home title row gets a 🔊/🔇 round button next to the streak. assets/sounds/ holds a README listing expected files + free-source links — drop a file in and uncomment one line in SOUND_MODULES to enable.
 - index.tsx: Home title row now shows a streak flame badge (🔥 N) on the right when the user has an active streak. Loaded via useFocusEffect so it refreshes after returning from a drill.
 - lib/stats.ts: Streak now requires a qualifying session per day — STREAK_MIN_QUESTIONS=10 AND STREAK_MIN_ACCURACY=50 — exported as constants and gated via qualifiesForStreak() helper. Days with only sub-threshold sessions don't count.
 - lib/stats.ts: Fixed timezone bug — isToday(), getStreak(), and getWeeklyData() previously mixed UTC date slices (from completedAt.slice(0, 10)) with local-time date keys (from formatDateKey(new Date())). All three now use formatDateKey(new Date(s.completedAt)) so both sides use device-local time. Affected users in any UTC offset (e.g. KL +8) doing early-morning drills.
@@ -164,9 +167,9 @@ Personal-best record is keyed by `(track, levelOrFormatId)` and derived from dri
 
 ## Gamification (Phase 1C)
 - Daily streak counter with flame icon — ✅ home badge shipped. Qualifying session required per day: ≥10 questions answered AND ≥50% accuracy in a single session (configurable via STREAK_MIN_QUESTIONS / STREAK_MIN_ACCURACY in lib/stats.ts).
-- Achievement badges (e.g. "100 Drills", "Perfect Score", "7-Day Streak", "First Pass")
-- Sound effects for correct/wrong/level-up (toggleable)
+- Sound effects (correct/wrong/drill-end/new-best, toggleable) — ✅ infra shipped. Asset files still need to be added to assets/sounds/.
 - Personal-best celebrations (Quick Drill new CPM record) — ✅ shipped
+- Achievement badges — deferred to **Phase 2**
 - (Stars removed — replaced by mode-specific hero metric, see Results Display)
 
 ## Monetization

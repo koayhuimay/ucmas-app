@@ -13,6 +13,7 @@ import {
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { ADD_SUB_LEVELS, MULT_FORMATS, DIV_FORMATS } from '../lib/levelConfig';
 import { getStreak } from '../lib/stats';
+import { getSoundEnabled, setSoundEnabled } from '../lib/settings';
 
 type Track = 'add_sub' | 'mult' | 'div';
 type Mode = 'quick' | 'full';
@@ -26,12 +27,20 @@ export default function HomeScreen() {
   const [selectedFormat, setSelectedFormat] = useState<string>('mult_2d_1d');
   const [selectedMode, setSelectedMode] = useState<Mode>('quick');
   const [streak, setStreak] = useState(0);
+  const [soundOn, setSoundOn] = useState(true);
 
   useFocusEffect(
     useCallback(() => {
       getStreak().then(setStreak);
+      getSoundEnabled().then(setSoundOn);
     }, [])
   );
+
+  function toggleSound() {
+    const next = !soundOn;
+    setSoundOn(next);
+    setSoundEnabled(next);
+  }
 
   useEffect(() => {
     if (params.track) setSelectedTrack(params.track as Track);
@@ -61,12 +70,22 @@ export default function HomeScreen() {
         {/* Title row */}
         <View style={styles.titleRow}>
           <Text style={styles.title}>UCMAS Practice</Text>
-          {streak > 0 && (
-            <View style={styles.streakBadge}>
-              <Text style={styles.streakFlame}>🔥</Text>
-              <Text style={styles.streakNum}>{streak}</Text>
-            </View>
-          )}
+          <View style={styles.titleRowRight}>
+            {streak > 0 && (
+              <View style={styles.streakBadge}>
+                <Text style={styles.streakFlame}>🔥</Text>
+                <Text style={styles.streakNum}>{streak}</Text>
+              </View>
+            )}
+            <TouchableOpacity
+              onPress={toggleSound}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.soundButton}
+            >
+              <Text style={styles.soundIcon}>{soundOn ? '🔊' : '🔇'}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Track selector */}
@@ -226,6 +245,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 28,
   },
+  titleRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   title: {
     fontSize: 28,
     fontWeight: '800',
@@ -248,6 +272,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FF9800',
     fontVariant: ['tabular-nums'],
+  },
+  soundButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#1E1E2E',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  soundIcon: {
+    fontSize: 18,
   },
 
   // Track selector
