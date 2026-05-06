@@ -1,7 +1,7 @@
 // app/results.tsx
 // Post-drill summary: accuracy ring, stats, and mistake review.
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,14 +10,13 @@ import {
   StyleSheet,
   SafeAreaView,
   FlatList,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Problem } from '../lib/drillEngine';
 import { QuestionResult } from './drill';
 import { ADD_SUB_LEVELS, MULT_FORMATS, DIV_FORMATS } from '../lib/levelConfig';
 import { saveDrillSession } from '../lib/storage';
+import { computeCpm, getBestRecord, BestRecord } from '../lib/stats';
 import { formatNum } from '../lib/format';
 
 const CARD_GAP = 12;
@@ -69,6 +68,13 @@ function formatTime(seconds: number): string {
   const s = seconds % 60;
   if (m > 0) return `${m}m ${s}s`;
   return `${s}s`;
+}
+
+function getVerdict(accuracy: number): { label: string; color: string } {
+  if (accuracy >= 90) return { label: 'DISTINCTION', color: '#FFD700' };
+  if (accuracy >= 80) return { label: 'CREDIT', color: '#4CAF50' };
+  if (accuracy >= 70) return { label: 'PASSED', color: '#4CAF50' };
+  return { label: 'NOT YET', color: '#FF9800' };
 }
 
 function MistakeCard({
@@ -131,6 +137,12 @@ export default function ResultsScreen() {
   const avgTimeSec = (avgTimeMs / 1000).toFixed(1);
   const mistakes = results.filter(r => !r.isCorrect);
 
+  const isFullPractice = mode === 'full';
+  const verdict = getVerdict(accuracy);
+  const currentCpm = Math.round(computeCpm(correctCount, totalTimeSeconds));
+  // undefined = still loading, null = no prior record, BestRecord = has prior
+  const [prevBest, setPrevBest] = useState<BestRecord | null | undefined>(undefined);
+
   const maxStrLen = mistakes.length > 0
     ? Math.max(
         ...mistakes.flatMap(m => [
@@ -143,29 +155,32 @@ export default function ResultsScreen() {
   const operandColWidth = Math.max(MIN_OPERAND_COL_W, maxStrLen * DIGIT_W + OPERAND_COL_PAD);
   const cardWidth = CARD_PADDING_H * 2 + ANSWER_LABEL_COL_W + operandColWidth;
 
-  const [activeMistake, setActiveMistake] = useState(0);
-
-  const onMomentumScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const idx = Math.round(e.nativeEvent.contentOffset.x / (cardWidth + CARD_GAP));
-    setActiveMistake(Math.max(0, Math.min(mistakes.length - 1, idx)));
-  };
-
-  React.useEffect(() => {
-    saveDrillSession({
-      track,
-      level: track === 'add_sub' ? parseInt(levelOrFormatId, 10) : null,
-      formatId: track !== 'add_sub' ? levelOrFormatId : null,
-      drillMode: mode as 'quick' | 'full',
-      totalQuestions,
-      correctCount,
-      accuracy,
-      timeSeconds: totalTimeSeconds,
-      mistakes: mistakes.map(r => ({
-        problemText: formatProblem(r.question.operands, r.question.operators),
-        userAnswer: r.userAnswer,
-        correctAnswer: r.correctAnswer,
-      })),
-    });
+  useEffect(() => {
+    (async () => {
+      // Read previous best BEFORE saving the current session, otherwise the
+      // current drill is included in the lookup and we'd never see "New best!"
+      if (mode === 'quick') {
+        const best = await getBestRecord(track, levelOrFormatId);
+        setPrevBest(best);
+      } else {
+        setPrevBest(null);
+      }
+      await saveDrillSession({
+        track,
+        level: track === 'add_sub' ? parseInt(levelOrFormatId, 10) : null,
+        formatId: track !== 'add_sub' ? levelOrFormatId : null,
+        drillMode: mode as 'quick' | 'full',
+        totalQuestions,
+        correctCount,
+        accuracy,
+        timeSeconds: totalTimeSeconds,
+        mistakes: mistakes.map(r => ({
+          problemText: formatProblem(r.question.operands, r.question.operators),
+          userAnswer: r.userAnswer,
+          correctAnswer: r.correctAnswer,
+        })),
+      });
+    })();
   }, []);
 
   const accuracyColor =
@@ -180,19 +195,43 @@ export default function ResultsScreen() {
       >
         {/* Header */}
         <Text style={styles.header}>{getDrillLabel(track, levelOrFormatId)}</Text>
-        <Text style={styles.subHeader}>{mode === 'quick' ? 'Quick Drill' : 'Full Practice'} — Complete!</Text>
 
-        {/* Hero Accuracy Circle */}
-        <View style={styles.circleContainer}>
-          <View style={[styles.circle, { borderColor: accuracyColor }]}>
-            <Text style={[styles.accuracyPercent, { color: accuracyColor }]}>
-              {accuracy}%
-            </Text>
-            <Text style={styles.accuracyLabel}>accuracy</Text>
-          </View>
-          <Text style={styles.correctCount}>
-            {formatNum(correctCount)} correct of {formatNum(totalQuestions)} answered
-          </Text>
+        {/* Accuracy summary */}
+        <View style={styles.accuracyBlock}>
+          {isFullPractice ? (
+            <>
+              <Text style={[styles.verdictBadge, { color: verdict.color }]}>
+                {verdict.label}
+              </Text>
+              <Text style={styles.verdictSubtext}>
+                {accuracy}% accuracy · {formatNum(correctCount)} of 200 answered
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.cpmValue}>{formatNum(currentCpm)}</Text>
+              <Text style={styles.cpmLabel}>correct per minute</Text>
+              <Text style={styles.cpmSubtext}>
+                {formatNum(correctCount)} correct · {accuracy}% accuracy
+              </Text>
+              {prevBest === null && currentCpm > 0 && (
+                <Text style={styles.newBest}>★ First record!</Text>
+              )}
+              {prevBest !== null && prevBest !== undefined && (() => {
+                const prevCpmRounded = Math.round(prevBest.cpm);
+                const isNew =
+                  currentCpm > prevCpmRounded ||
+                  (currentCpm === prevCpmRounded && accuracy > prevBest.accuracy);
+                return isNew ? (
+                  <Text style={styles.newBest}>★ New best!</Text>
+                ) : (
+                  <Text style={styles.bestPrev}>
+                    Best: {formatNum(prevCpmRounded)} CPM @ {prevBest.accuracy}%
+                  </Text>
+                );
+              })()}
+            </>
+          )}
         </View>
 
         {/* Stats Row */}
@@ -211,9 +250,8 @@ export default function ResultsScreen() {
         {/* Mistake Review */}
         {mistakes.length > 0 && (
           <View style={styles.mistakesSection}>
-            <Text style={styles.mistakesHeader}>Review Mistakes</Text>
-            <Text style={styles.mistakesCounter}>
-              Mistake {activeMistake + 1} of {mistakes.length}
+            <Text style={styles.mistakesHeader}>
+              Review {formatNum(mistakes.length)} {mistakes.length === 1 ? 'Mistake' : 'Mistakes'}
             </Text>
             <FlatList
               data={mistakes}
@@ -229,7 +267,6 @@ export default function ResultsScreen() {
               showsHorizontalScrollIndicator={false}
               snapToInterval={cardWidth + CARD_GAP}
               decelerationRate="fast"
-              onMomentumScrollEnd={onMomentumScrollEnd}
               ItemSeparatorComponent={() => <View style={{ width: CARD_GAP }} />}
               contentContainerStyle={styles.mistakesList}
             />
@@ -282,50 +319,86 @@ const styles = StyleSheet.create({
 
   // Header
   header: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 8,
-  },
-  subHeader: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#888',
-    marginTop: -24,
-    marginBottom: 32,
+    marginBottom: 16,
   },
 
-  // Accuracy circle
-  circleContainer: {
+  // Accuracy summary (no ring)
+  accuracyBlock: {
     alignItems: 'center',
-    marginBottom: 32,
-  },
-  circle: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    borderWidth: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1E1E2E',
-    marginBottom: 12,
+    marginBottom: 24,
   },
   accuracyPercent: {
-    fontSize: 44,
+    fontSize: 56,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
+    lineHeight: 60,
   },
   accuracyLabel: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#888',
     fontWeight: '500',
     marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   correctCount: {
-    fontSize: 18,
+    fontSize: 16,
     color: '#CCC',
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
+    marginTop: 8,
+  },
+  verdictBadge: {
+    fontSize: 44,
+    fontWeight: '800',
+    letterSpacing: 2,
+    lineHeight: 48,
+  },
+  verdictSubtext: {
+    fontSize: 14,
+    color: '#CCC',
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+    marginTop: 10,
+  },
+  cpmValue: {
+    fontSize: 64,
+    fontWeight: '800',
+    color: '#FFD700',
+    fontVariant: ['tabular-nums'],
+    lineHeight: 68,
+  },
+  cpmLabel: {
+    fontSize: 13,
+    color: '#888',
+    fontWeight: '500',
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  cpmSubtext: {
+    fontSize: 14,
+    color: '#CCC',
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+    marginTop: 10,
+  },
+  newBest: {
+    fontSize: 14,
+    color: '#FFD700',
+    fontWeight: '700',
+    marginTop: 6,
+    letterSpacing: 0.5,
+  },
+  bestPrev: {
+    fontSize: 13,
+    color: '#888',
+    fontWeight: '500',
+    fontVariant: ['tabular-nums'],
+    marginTop: 6,
   },
 
   // Stats row
@@ -371,12 +444,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#FF9800',
-    marginBottom: 4,
-  },
-  mistakesCounter: {
-    fontSize: 13,
-    color: '#888',
-    fontWeight: '500',
     marginBottom: 12,
   },
   mistakesList: {

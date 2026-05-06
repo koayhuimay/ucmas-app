@@ -33,6 +33,40 @@ export interface WeeklyData {
 // Helpers
 // ---------------------------------------------------------------------------
 
+export interface BestRecord {
+  cpm: number;       // raw float CPM
+  accuracy: number;  // 0-100, integer
+}
+
+export function computeCpm(correctCount: number, timeSeconds: number): number {
+  if (timeSeconds <= 0) return 0;
+  return correctCount / (timeSeconds / 60);
+}
+
+// Returns the best (CPM, accuracy) record for Quick Drills matching the given
+// track + level/format. Ranking is lexicographic: CPM first, then accuracy as
+// tiebreaker. Returns null if there is no prior history.
+export async function getBestRecord(
+  track: string,
+  levelOrFormatId: string
+): Promise<BestRecord | null> {
+  const sessions = await getDrillHistory('quick');
+  const matching = sessions
+    .filter(s => {
+      if (s.track !== track) return false;
+      if (track === 'add_sub') return s.level === parseInt(levelOrFormatId, 10);
+      return s.formatId === levelOrFormatId;
+    })
+    .filter(s => s.timeSeconds > 0);
+  if (matching.length === 0) return null;
+  const records: BestRecord[] = matching.map(s => ({
+    cpm: computeCpm(s.correctCount, s.timeSeconds),
+    accuracy: s.accuracy,
+  }));
+  records.sort((a, b) => (b.cpm - a.cpm) || (b.accuracy - a.accuracy));
+  return records[0];
+}
+
 export function formatDateKey(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');

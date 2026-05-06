@@ -52,7 +52,7 @@ ucmas-app/
 │   ├── drillEngine.ts  ✅ Built — All tracks: Add/Sub (section-based, 8 levels), Mult (6 formats, operand swap), Div (5 formats, whole-number answers)
 │   ├── levelConfig.ts  ✅ Built — 8 Add/Sub levels (section-based), 6 mult formats, 5 div formats (v1.5 structure)
 │   ├── storage.ts      ✅ Built — AsyncStorage helper (save/get/clear drill history, mode filtering)
-│   ├── stats.ts        ✅ Built — getTodayStats(), getStreak(), getWeeklyData() with mode filtering
+│   ├── stats.ts        ✅ Built — getTodayStats(), getStreak(), getWeeklyData(), computeCpm(), getBestRecord() (Quick Drill personal best, CPM + accuracy tiebreaker)
 │   ├── format.ts       ✅ Built — formatNum() (toLocaleString thousands separators) + tabularNums style
 │   └── supabase.ts     🔲 Empty placeholder
 ├── constants/
@@ -62,6 +62,10 @@ ucmas-app/
 └── assets/
 ```
 ## Recent Changes
+- results.tsx: Quick Drill mode now shows CPM (correct per minute) as gold hero metric, with "X correct · Y% accuracy" subtext and personal-best line ("First record!" / "New best!" / "Best: Z CPM @ W%"). Previous best is read BEFORE saving the current session to avoid self-comparison.
+- lib/stats.ts: New computeCpm(correctCount, timeSeconds) and getBestRecord(track, levelOrFormatId) → BestRecord | null. BestRecord = { cpm, accuracy }. Ranking is lexicographic (CPM desc, accuracy desc) so equal CPMs are tiebroken by accuracy.
+- results.tsx: Full Practice mode shows 4-tier verdict badge (DISTINCTION ≥90% gold / CREDIT ≥80% / PASSED ≥70% green / NOT YET <70% orange) with "X% accuracy · Y of 200 answered" subtext. Replaces accuracy ring + "Quick Drill — Complete!" subtitle for Full Practice.
+- results.tsx: Removed accuracy ring chrome and the "{mode} — Complete!" subtitle to compact the top of the screen. Mistake review header collapsed from "Review Mistakes" + "Mistake X of N" subtitle into a single "Review N Mistakes" line; activeMistake state and onMomentumScrollEnd handler removed.
 - lib/format.ts: New shared util — formatNum() applies thousands separators via toLocaleString('en-US'); tabularNums TextStyle helper
 - drill.tsx: Problems now render as operator + operand columns (fixed-width op col, right-aligned operand col with minWidth = max digit string × 0.6 × fontSize). Operators align vertically across rows; operand right edges align. Live answer input formats with separators (raw input still drives auto-submit). Tabular-nums on number/answerInput/scoreText.
 - results.tsx: Mistake review redesigned — horizontal FlatList of snap-paged cards (data-driven width: 32 padding + 48 label col + operandColWidth from max formatted-string length × 14). Each card vertical-math layout with operator col (28px) + operand col, divider, Your/Ans rows. "Mistake X of N" counter updates on momentum scroll. Practice Again / Back to Home moved out of ScrollView into fixed bottom bar above safe-area inset. Tabular digits + separators on stats and mistake cards (system font, not monospace).
@@ -135,17 +139,25 @@ Three tables:
 Stars / 1–3 ratings were rejected as too abstract — kids have to translate symbols into meaning. Each drill mode shows a single mode-appropriate hero metric instead, so the verdict is instinctive.
 
 **Full Practice (8 min / 200 q — mirrors UCMAS exam format)**
-- Hero: **PASSED** / **NOT YET** badge using UCMAS 70% standard
+- Hero: 4-tier verdict badge based on accuracy:
+  - ≥90% → **DISTINCTION** (gold `#FFD700`)
+  - ≥80% → **CREDIT** (green `#4CAF50`)
+  - ≥70% → **PASSED** (green `#4CAF50`)
+  - <70% → **NOT YET** (orange `#FF9800`)
 - Subtext: "X% accuracy · Y of 200 answered"
-- Why: Full Practice mirrors the real UCMAS exam, so the real exam standard is the right verdict. No translation layer needed.
+- Implementation: `getVerdict(accuracy)` helper in `app/results.tsx`. Threshold and labels match UCMAS exam grading conventions.
 
 **Quick Drill (1 min, no question cap)**
-- Hero: **Correct per minute (CPM)** — total correct ÷ minutes elapsed
+- Hero: **Correct per minute (CPM)** — `correctCount / (timeSeconds / 60)`, displayed as rounded integer in gold (`#FFD700`).
 - Subtext: "X correct · Y% accuracy"
-- Comparison: "New best!" badge if beats personal best for this track + level/format; otherwise "Best: Z CPM"
-- Why: CPM naturally combines speed and accuracy. Slow-but-accurate gets low CPM; fast-but-wrong also gets low CPM. The only path to a high CPM is to be fast AND accurate — fixes the "kid does it slowly to game accuracy" problem.
+- Personal-best line:
+  - First drill at this `(track, level/format)` → ★ **First record!**
+  - Beats prior best → ★ **New best!**
+  - Otherwise → "Best: Z CPM @ W%"
+- Tiebreaker: ranking is lexicographic — CPM first, then accuracy. Two sessions with the same rounded CPM are decided by accuracy. Why: avoids treating numerically-tied sessions as "new bests" when accuracy actually dropped.
+- Implementation: `getBestRecord(track, levelOrFormatId)` in `lib/stats.ts` returns `BestRecord | null` (null = no prior history). Read happens BEFORE saving the current session in `results.tsx`'s `useEffect`, otherwise the just-completed drill would always be the "best".
 
-Personal-best CPM is keyed by `(track, levelOrFormatId)` and stored alongside drill history in AsyncStorage (later: synced via Supabase).
+Personal-best record is keyed by `(track, levelOrFormatId)` and derived from drill history in AsyncStorage (later: synced via Supabase).
 
 ## Gamification (Phase 1C)
 - Daily streak counter with flame icon

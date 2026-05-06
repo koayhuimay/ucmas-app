@@ -52,9 +52,15 @@ These are locked in. Don't re-ask or re-debate:
 15. **Digit display rules:** All digit displays use thousands separators (en-US locale) and `fontVariant: ['tabular-nums']` for consistent column alignment. Operators (+/−/×/÷) sit in their own fixed-width column so they align vertically across rows. Live answer input is formatted on display only — raw digits drive the auto-submit logic.
 16. **Mistake review UI:** Horizontal snap-paged FlatList of cards (data-driven width, sized to longest formatted number). Each card shows the problem in vertical-math format with operator + operand columns, divider, then color-coded "Your" (red) and "Ans" (green) rows. Practice Again / Back to Home are pinned in a fixed bottom bar above the safe-area inset.
 17. **Results hero metric is mode-specific (no stars):**
-    - **Full Practice** → **PASSED** / **NOT YET** badge using the real UCMAS 70% standard, plus "X% accuracy · Y of 200 answered".
-    - **Quick Drill** → **Correct per minute (CPM)** as hero metric, plus "X correct · Y% accuracy" and a "New best!" / "Best: Z CPM" comparison.
-    - Why: stars conflate accuracy + speed + volume into one ambiguous symbol. CPM naturally rewards being both fast AND accurate, fixing the "go slow to inflate accuracy" gaming problem. Personal-best CPM is keyed by `(track, levelOrFormatId)` in AsyncStorage.
+    - **Full Practice** → 4-tier verdict badge by accuracy:
+      - ≥90% **DISTINCTION** (gold)
+      - ≥80% **CREDIT** (green)
+      - ≥70% **PASSED** (green)
+      - <70% **NOT YET** (orange)
+      
+      Subtext: "X% accuracy · Y of 200 answered". Tiers match UCMAS exam grading conventions.
+    - **Quick Drill** → **Correct per minute (CPM)** as hero metric, plus "X correct · Y% accuracy". Personal-best line shows "First record!", "New best!", or "Best: Z CPM @ W%". Personal-best ranking is lexicographic — CPM first, accuracy as tiebreaker — so two sessions with the same CPM are decided by who was more accurate.
+    - Why: stars conflate accuracy + speed + volume into one ambiguous symbol. CPM naturally rewards being both fast AND accurate, fixing the "go slow to inflate accuracy" gaming problem. Personal-best record is keyed by `(track, levelOrFormatId)` in AsyncStorage.
 
 ## PROJECT STRUCTURE
 
@@ -187,6 +193,9 @@ Then paste all code files back in (see current code in Blueprint or previous cha
 - [x]  Mistake review redesign — horizontal carousel of vertical-math cards, fixed bottom action bar
 - [x]  Tabular digits + thousands separators across drill, results, and progress screens
 - [x]  Drill problem layout — operator and operand in separate columns so +/−/×/÷ align vertically across rows
+- [x]  Results screen compaction — removed accuracy ring chrome + "Quick Drill — Complete!" subtitle; collapsed mistake review header into single line
+- [x]  Full Practice 4-tier verdict (Distinction / Credit / Passed / Not Yet) using UCMAS 70%/80%/90% bands
+- [x]  Quick Drill CPM hero + personal-best tracking — `getBestRecord()` in `lib/stats.ts`, lexicographic CPM/accuracy tiebreaker, displays "First record!" / "New best!" / "Best: Z CPM @ W%"
 
 ### Not Yet Started
 - [ ]  Supabase integration (auth + 3 tables: profiles, drill_sessions, drill_answers)
