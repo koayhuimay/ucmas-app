@@ -1,7 +1,7 @@
 // app/results.tsx
 // Post-drill summary: accuracy ring, stats, and mistake review.
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,18 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
+  FlatList,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Problem } from '../lib/drillEngine';
 import { QuestionResult } from './drill';
 import { ADD_SUB_LEVELS, MULT_FORMATS, DIV_FORMATS } from '../lib/levelConfig';
 import { saveDrillSession } from '../lib/storage';
+
+const CARD_WIDTH = 200;
+const CARD_GAP = 12;
 
 interface DrillResults {
   results: QuestionResult[];
@@ -59,6 +65,37 @@ function formatTime(seconds: number): string {
   return `${s}s`;
 }
 
+function MistakeCard({ result }: { result: QuestionResult }) {
+  const { operands, operators } = result.question;
+  return (
+    <View style={styles.mistakeCard}>
+      <View style={styles.problemBlock}>
+        {operands.map((n, i) => (
+          <View key={i} style={styles.operandRow}>
+            <Text style={styles.operatorCol}>
+              {i === 0 ? '' : operators[i - 1]}
+            </Text>
+            <Text style={styles.operandCol}>{n}</Text>
+          </View>
+        ))}
+        <View style={styles.divider} />
+        <View style={styles.operandRow}>
+          <Text style={styles.answerLabelCol}>Your</Text>
+          <Text style={[styles.operandCol, styles.wrongAnswer]}>
+            {result.userAnswer}
+          </Text>
+        </View>
+        <View style={styles.operandRow}>
+          <Text style={styles.answerLabelCol}>Ans</Text>
+          <Text style={[styles.operandCol, styles.correctAnswer]}>
+            {result.correctAnswer}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 export default function ResultsScreen() {
   const { data } = useLocalSearchParams<{ data: string }>();
   const router = useRouter();
@@ -77,6 +114,13 @@ export default function ResultsScreen() {
   const avgTimeMs = results.reduce((sum, r) => sum + r.timeMs, 0) / results.length;
   const avgTimeSec = (avgTimeMs / 1000).toFixed(1);
   const mistakes = results.filter(r => !r.isCorrect);
+
+  const [activeMistake, setActiveMistake] = useState(0);
+
+  const onMomentumScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const idx = Math.round(e.nativeEvent.contentOffset.x / (CARD_WIDTH + CARD_GAP));
+    setActiveMistake(Math.max(0, Math.min(mistakes.length - 1, idx)));
+  };
 
   React.useEffect(() => {
     saveDrillSession({
@@ -102,6 +146,7 @@ export default function ResultsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
+        style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -138,30 +183,22 @@ export default function ResultsScreen() {
         {/* Mistake Review */}
         {mistakes.length > 0 && (
           <View style={styles.mistakesSection}>
-            <Text style={styles.mistakesHeader}>
-              Review Mistakes ({mistakes.length})
+            <Text style={styles.mistakesHeader}>Review Mistakes</Text>
+            <Text style={styles.mistakesCounter}>
+              Mistake {activeMistake + 1} of {mistakes.length}
             </Text>
-            {mistakes.map((r, i) => (
-              <View key={i} style={styles.mistakeCard}>
-                <Text style={styles.problemText}>
-                  {formatProblem(r.question.operands, r.question.operators)}
-                </Text>
-                <View style={styles.answersRow}>
-                  <View style={styles.answerBox}>
-                    <Text style={styles.answerLabel}>Your answer</Text>
-                    <Text style={[styles.answerValue, styles.wrongAnswer]}>
-                      {r.userAnswer}
-                    </Text>
-                  </View>
-                  <View style={styles.answerBox}>
-                    <Text style={styles.answerLabel}>Correct</Text>
-                    <Text style={[styles.answerValue, styles.correctAnswer]}>
-                      {r.correctAnswer}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            ))}
+            <FlatList
+              data={mistakes}
+              keyExtractor={(_, i) => `mistake-${i}`}
+              renderItem={({ item }) => <MistakeCard result={item} />}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              snapToInterval={CARD_WIDTH + CARD_GAP}
+              decelerationRate="fast"
+              onMomentumScrollEnd={onMomentumScrollEnd}
+              ItemSeparatorComponent={() => <View style={{ width: CARD_GAP }} />}
+              contentContainerStyle={styles.mistakesList}
+            />
           </View>
         )}
 
@@ -170,8 +207,10 @@ export default function ResultsScreen() {
             <Text style={styles.perfectText}>Perfect score! Keep it up!</Text>
           </View>
         )}
+      </ScrollView>
 
-        {/* Practice Again */}
+      {/* Fixed bottom action bar */}
+      <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.button}
           onPress={() => router.replace({ pathname: '/drill', params: { track, levelOrFormatId, mode } })}
@@ -180,7 +219,6 @@ export default function ResultsScreen() {
           <Text style={styles.buttonText}>Practice Again</Text>
         </TouchableOpacity>
 
-        {/* Back to Home */}
         <TouchableOpacity
           style={styles.secondaryButton}
           onPress={() => router.replace({ pathname: '/', params: { track, levelOrFormatId, mode } })}
@@ -188,7 +226,7 @@ export default function ResultsScreen() {
         >
           <Text style={styles.secondaryButtonText}>Back to Home</Text>
         </TouchableOpacity>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -198,9 +236,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0F0F1A',
   },
+  scroll: {
+    flex: 1,
+  },
   scrollContent: {
     alignItems: 'center',
-    paddingVertical: 40,
+    paddingTop: 40,
+    paddingBottom: 24,
     paddingHorizontal: 24,
   },
 
@@ -286,49 +328,72 @@ const styles = StyleSheet.create({
   // Mistake review
   mistakesSection: {
     width: '100%',
-    marginBottom: 32,
+    marginBottom: 16,
   },
   mistakesHeader: {
     fontSize: 18,
     fontWeight: '700',
     color: '#FF9800',
-    marginBottom: 12,
+    marginBottom: 4,
   },
-  mistakeCard: {
-    backgroundColor: '#1E1E2E',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 10,
-  },
-  problemText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginBottom: 12,
-    letterSpacing: 1,
-  },
-  answersRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  answerBox: {
-    flex: 1,
-    backgroundColor: '#0F0F1A',
-    borderRadius: 8,
-    padding: 10,
-    alignItems: 'center',
-  },
-  answerLabel: {
-    fontSize: 11,
+  mistakesCounter: {
+    fontSize: 13,
     color: '#888',
     fontWeight: '500',
-    marginBottom: 4,
+    marginBottom: 12,
+  },
+  mistakesList: {
+    paddingRight: 24,
+  },
+  mistakeCard: {
+    width: CARD_WIDTH,
+    backgroundColor: '#1E1E2E',
+    borderRadius: 12,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+  },
+  problemBlock: {
+    alignSelf: 'center',
+  },
+  operandRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'flex-end',
+    marginVertical: 1,
+  },
+  operatorCol: {
+    width: 36,
+    textAlign: 'right',
+    paddingRight: 10,
+    fontSize: 22,
+    fontWeight: '600',
+    color: '#888',
+    fontVariant: ['tabular-nums'],
+  },
+  operandCol: {
+    minWidth: 90,
+    textAlign: 'right',
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    fontVariant: ['tabular-nums'],
+  },
+  answerLabelCol: {
+    width: 36,
+    textAlign: 'right',
+    paddingRight: 10,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#888',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  answerValue: {
-    fontSize: 24,
-    fontWeight: '700',
+  divider: {
+    alignSelf: 'flex-end',
+    width: 110,
+    height: 1,
+    backgroundColor: '#333',
+    marginVertical: 6,
   },
   wrongAnswer: {
     color: '#F44336',
@@ -343,7 +408,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 24,
-    marginBottom: 32,
+    marginBottom: 16,
     width: '100%',
     alignItems: 'center',
   },
@@ -353,7 +418,15 @@ const styles = StyleSheet.create({
     color: '#4CAF50',
   },
 
-  // Button
+  // Bottom action bar
+  bottomBar: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 8,
+    backgroundColor: '#0F0F1A',
+    borderTopWidth: 1,
+    borderTopColor: '#1E1E2E',
+  },
   button: {
     backgroundColor: '#4F46E5',
     borderRadius: 16,
@@ -361,7 +434,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 48,
     width: '100%',
     alignItems: 'center',
-    marginTop: 8,
   },
   buttonText: {
     fontSize: 20,
