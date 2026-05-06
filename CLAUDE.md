@@ -131,11 +131,28 @@ Three tables:
 5. Avg speed per question (details section)
 6. Time practiced (details section)
 
+## Results Display (Hero Metric Per Mode)
+Stars / 1–3 ratings were rejected as too abstract — kids have to translate symbols into meaning. Each drill mode shows a single mode-appropriate hero metric instead, so the verdict is instinctive.
+
+**Full Practice (8 min / 200 q — mirrors UCMAS exam format)**
+- Hero: **PASSED** / **NOT YET** badge using UCMAS 70% standard
+- Subtext: "X% accuracy · Y of 200 answered"
+- Why: Full Practice mirrors the real UCMAS exam, so the real exam standard is the right verdict. No translation layer needed.
+
+**Quick Drill (1 min, no question cap)**
+- Hero: **Correct per minute (CPM)** — total correct ÷ minutes elapsed
+- Subtext: "X correct · Y% accuracy"
+- Comparison: "New best!" badge if beats personal best for this track + level/format; otherwise "Best: Z CPM"
+- Why: CPM naturally combines speed and accuracy. Slow-but-accurate gets low CPM; fast-but-wrong also gets low CPM. The only path to a high CPM is to be fast AND accurate — fixes the "kid does it slowly to game accuracy" problem.
+
+Personal-best CPM is keyed by `(track, levelOrFormatId)` and stored alongside drill history in AsyncStorage (later: synced via Supabase).
+
 ## Gamification (Phase 1C)
 - Daily streak counter with flame icon
-- Stars per drill: 1–3 based on accuracy
-- Achievement badges (e.g. "100 Drills", "Perfect Score", "7-Day Streak")
+- Achievement badges (e.g. "100 Drills", "Perfect Score", "7-Day Streak", "First Pass")
 - Sound effects for correct/wrong/level-up (toggleable)
+- Personal-best celebrations (Quick Drill new CPM record)
+- (Stars removed — replaced by mode-specific hero metric, see Results Display)
 
 ## Monetization
 - Free: Add/Sub Levels 1–3, Mult/Div: 2d×1d, 3d÷1d. 10 drills/day.
