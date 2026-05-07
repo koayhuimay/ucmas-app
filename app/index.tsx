@@ -14,6 +14,8 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { ADD_SUB_LEVELS, MULT_FORMATS, DIV_FORMATS } from '../lib/levelConfig';
 import { getStreak } from '../lib/stats';
 import { getSoundEnabled, setSoundEnabled } from '../lib/settings';
+import { supabase } from '../lib/supabase';
+import { getMyProfile } from '../lib/profile';
 
 type Track = 'add_sub' | 'mult' | 'div';
 type Mode = 'quick' | 'full';
@@ -28,11 +30,13 @@ export default function HomeScreen() {
   const [selectedMode, setSelectedMode] = useState<Mode>('quick');
   const [streak, setStreak] = useState(0);
   const [soundOn, setSoundOn] = useState(true);
+  const [displayName, setDisplayName] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       getStreak().then(setStreak);
       getSoundEnabled().then(setSoundOn);
+      getMyProfile().then((p) => setDisplayName(p?.display_name ?? null));
     }, [])
   );
 
@@ -40,6 +44,10 @@ export default function HomeScreen() {
     const next = !soundOn;
     setSoundOn(next);
     setSoundEnabled(next);
+  }
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
   }
 
   useEffect(() => {
@@ -69,7 +77,11 @@ export default function HomeScreen() {
 
         {/* Title row */}
         <View style={styles.titleRow}>
-          <Text style={styles.title}>UCMAS Practice</Text>
+          {displayName ? (
+            <Text style={styles.greeting}>Hi, {displayName}</Text>
+          ) : (
+            <View />
+          )}
           <View style={styles.titleRowRight}>
             {streak > 0 && (
               <View style={styles.streakBadge}>
@@ -84,6 +96,14 @@ export default function HomeScreen() {
               style={styles.soundButton}
             >
               <Text style={styles.soundIcon}>{soundOn ? '🔊' : '🔇'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleSignOut}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.soundButton}
+            >
+              <Text style={styles.soundIcon}>🚪</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -244,6 +264,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 28,
+  },
+  greeting: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   titleRowRight: {
     flexDirection: 'row',
