@@ -14,7 +14,7 @@ Blueprint: v1.7 (frozen)
 - Test on phone: scan QR code with Expo Go
 
 ## Current Phase
-Phase 1B — Core Features (in progress)
+Phase 1C — Auth + Sync (in progress). Phase 1B (Core Features) complete.
 
 ## Three-Track Practice System
 - Track 1: Addition & Subtraction — Level-based (8 levels, progressive)
@@ -34,15 +34,19 @@ Phase 1B — Core Features (in progress)
 10. One feature at a time — finish it, test it, commit it. Then move on.
 11. Git commit after every working feature — always have a working version to go back to.
 12. Never store sensitive data on device — use Supabase for anything that matters.
+13. Never commit `.env` (gitignored). `.env.example` is the committed template. Supabase env vars use the `EXPO_PUBLIC_*` prefix so Expo inlines them at build time — restart with `npx expo start --clear` after editing.
 
 ## File Structure
 ```
 ucmas-app/
 ├── app/
-│   ├── index.tsx       ✅ Built — Home screen (three-track nav, level/format picker, mode picker)
+│   ├── _layout.tsx     ✅ Built — Root layout + auth gate (no session → /auth, no display_name → /onboarding). Provides ProfileGateContext for screens to refresh profile state.
+│   ├── index.tsx       ✅ Built — Home screen (three-track nav, level/format picker, mode picker, "Hi, [Name]" greeting, sign-out button)
 │   ├── drill.tsx       ✅ Built — Drill screen (3-column carousel, top bar, progress bar timer, auto-submit, three-track support)
 │   ├── results.tsx     ✅ Built — Results screen (accuracy ring, drill label with level/format + mode, mistake review, practice again)
-│   └── progress.tsx    ✅ Built — Progress dashboard (daily accuracy ring, mode toggle, operation breakdown, streak, 7-day chart)
+│   ├── progress.tsx    ✅ Built — Progress dashboard (daily accuracy ring, mode toggle, operation breakdown, streak, 7-day chart)
+│   ├── auth.tsx        ✅ Built — Magic-link OTP sign-in (email → 6-digit code → verify)
+│   └── onboarding.tsx  ✅ Built — First-time display-name capture (upserts profile row)
 ├── components/
 │   ├── Keypad.tsx      ✅ Built — 4×3 grid (explicit rows, no flexWrap), height = 1/3 screen, 40px bottom padding
 │   ├── Timer.tsx       ✅ Built — countdown timer with red warning (not used in drill screen — inline countdown instead)
@@ -56,14 +60,22 @@ ucmas-app/
 │   ├── format.ts       ✅ Built — formatNum() (toLocaleString thousands separators) + tabularNums style
 │   ├── settings.ts     ✅ Built — getSoundEnabled() / setSoundEnabled() (AsyncStorage, default ON)
 │   ├── sounds.ts       ✅ Built — play(name) helper backed by expo-av; 4 slots (correct/wrong/drillEnd/newBest) wired but unfilled — drop assets and uncomment SOUND_MODULES line to enable
-│   └── supabase.ts     🔲 Empty placeholder
+│   ├── supabase.ts     ✅ Built — RN-flavored Supabase client (AsyncStorage session storage, AppState start/stopAutoRefresh, EXPO_PUBLIC_* env vars)
+│   ├── profile.ts      ✅ Built — getMyProfile() + setDisplayName() (upsert-safe so it works even if the auth.users insert trigger hasn't fired yet)
+│   └── profileGate.ts  ✅ Built — ProfileGateContext + useProfileGate() hook so screens (e.g. onboarding) can ask the root gate to re-read the profile after a write
+├── supabase/
+│   ├── schema.sql      ✅ Built — profiles, drill_sessions, drill_answers + RLS policies + handle_new_user() trigger that auto-creates profile row on auth.users insert
+│   └── README.md       ✅ Built — manual dashboard setup steps (run schema, allow ucmas:// redirect URLs, customize Magic Link email template to show {{ .Token }})
 ├── constants/
 │   ├── colors.ts       🔲 Empty placeholder
 │   └── formulas.ts     🔲 Empty placeholder
 ├── App.tsx.bak         ← Must stay as .bak, never rename back
+├── .env                ← Gitignored. Contains EXPO_PUBLIC_SUPABASE_URL + EXPO_PUBLIC_SUPABASE_ANON_KEY
+├── .env.example        ← Committed template
 └── assets/
 ```
 ## Recent Changes
+- Supabase auth + profile shipped (Phase 1C). `lib/supabase.ts` is a RN-flavored client (AsyncStorage session, AppState refresh handler). `app/_layout.tsx` is now the root layout with an auth gate: no session → /auth, session but no display_name → /onboarding, otherwise → app. `app/auth.tsx` does magic-link OTP (email → 6-digit code → `verifyOtp({ type: 'email' })`); the dashboard's Magic Link email template must include `{{ .Token }}` so the code is visible (default template only has the link). `app/onboarding.tsx` captures display name and upserts to `profiles`. `lib/profileGate.ts` provides a Context so onboarding can call `refresh()` after save — without it, the gate held stale `hasName=false` and bounced the user back to /onboarding. Home shows "Hi, [Name]" + a temp 🚪 sign-out button (proper sign-out placement is task #7). DB schema + RLS in `supabase/schema.sql`; user manually runs it via Dashboard → SQL Editor + adds `ucmas://` to redirect URLs (per `supabase/README.md`).
 - Sound effects infra (no asset files yet): expo-av installed; lib/sounds.ts plays correct/wrong/drillEnd/newBest via a typed play() helper (lazy-load + cache, no-ops gracefully when a slot is unwired); lib/settings.ts persists sound on/off (default ON). Triggers wired in drill.tsx (correct/wrong) and results.tsx (drillEnd; newBest fired 600ms later when Quick Drill beats prev best). Home title row gets a 🔊/🔇 round button next to the streak. assets/sounds/ holds a README listing expected files + free-source links — drop a file in and uncomment one line in SOUND_MODULES to enable.
 - index.tsx: Home title row now shows a streak flame badge (🔥 N) on the right when the user has an active streak. Loaded via useFocusEffect so it refreshes after returning from a drill.
 - lib/stats.ts: Streak now requires a qualifying session per day — STREAK_MIN_QUESTIONS=10 AND STREAK_MIN_ACCURACY=50 — exported as constants and gated via qualifiesForStreak() helper. Days with only sub-threshold sessions don't count.
@@ -127,11 +139,12 @@ ucmas-app/
 ## Quit Drill
 X button top-left → "Are you sure?" dialog → Yes = discard + go Home. Timer pauses during dialog.
 
-## Data Model (Supabase — not yet integrated)
-Three tables:
-- profiles — user ID, display name, current level (1–8), auth provider
-- drill_sessions — track, level, operation_type, drill_mode, total_questions, correct_count, time_seconds
-- drill_answers — session_id, question_json, user_answer, correct_answer, is_correct, time_ms
+## Data Model (Supabase — partially integrated)
+Schema lives in `supabase/schema.sql`. Auth + profiles are wired (Phase 1C in progress); drill sync is task #6 (next).
+
+- **profiles** — `id` (FK auth.users), `email`, `display_name`, `current_addsub_level` (1–8). Auto-created on signup by `handle_new_user()` trigger; client also upserts as a safety net. RLS: users read/insert/update only their own row.
+- **drill_sessions** — `id`, `user_id`, `client_session_id` (UNIQUE per user — generated on device for offline-safe push), `track` ∈ {addsub, mult, div}, `level`, `format_id`, `drill_mode` ∈ {quick, full}, `total_questions`, `correct_count`, `time_seconds`, `completed_at`. RLS: users read/insert only their own.
+- **drill_answers** — `id`, `session_id`, `user_id`, `problem_text`, `user_answer`, `correct_answer`, `is_correct`, `position`, `time_ms`. Currently stores mistakes only (matches what `lib/storage.ts` records); schema permits `is_correct=true` rows so all answers can be captured later without migration. RLS: users read/insert only their own.
 
 ## Progress Dashboard Priority
 1. Daily accuracy % (hero metric — big ring chart)
@@ -165,7 +178,16 @@ Stars / 1–3 ratings were rejected as too abstract — kids have to translate s
 
 Personal-best record is keyed by `(track, levelOrFormatId)` and derived from drill history in AsyncStorage (later: synced via Supabase).
 
-## Gamification (Phase 1C)
+## Phase 1C — Auth & Sync
+- [x] Install Supabase deps + .env scaffolding (EXPO_PUBLIC_* vars)
+- [x] `lib/supabase.ts` client with AsyncStorage session + AppState refresh
+- [x] DB schema (`supabase/schema.sql`) — profiles + drill_sessions + drill_answers + RLS + signup trigger
+- [x] Auth screen + magic-link OTP (6-digit code typed into the app)
+- [x] Display name onboarding + profile row + ProfileGateContext for refresh-after-write
+- [ ] Sync drill sessions to Supabase (offline-first — write to AsyncStorage as today, push to Supabase opportunistically)
+- [ ] Sign-out polish (current 🚪 on home is temp; final placement on Progress screen)
+
+## Gamification (Phase 1C, parallel track)
 - Daily streak counter with flame icon — ✅ home badge shipped. Qualifying session required per day: ≥10 questions answered AND ≥50% accuracy in a single session (configurable via STREAK_MIN_QUESTIONS / STREAK_MIN_ACCURACY in lib/stats.ts).
 - Sound effects (correct/wrong/drill-end/new-best, toggleable) — ✅ infra shipped. Asset files still need to be added to assets/sounds/.
 - Personal-best celebrations (Quick Drill new CPM record) — ✅ shipped
