@@ -14,7 +14,7 @@ Blueprint: v1.7 (frozen)
 - Test on phone: scan QR code with Expo Go
 
 ## Current Phase
-Phase 1C — Auth + Sync (in progress). Phase 1B (Core Features) complete.
+Phase 1C — Auth + Sync (mostly done; sign-out polish remaining). Phase 1B (Core Features) complete.
 
 ## Three-Track Practice System
 - Track 1: Addition & Subtraction — Level-based (8 levels, progressive)
@@ -55,7 +55,8 @@ ucmas-app/
 ├── lib/
 │   ├── drillEngine.ts  ✅ Built — All tracks: Add/Sub (section-based, 8 levels), Mult (6 formats, operand swap), Div (5 formats, whole-number answers)
 │   ├── levelConfig.ts  ✅ Built — 8 Add/Sub levels (section-based), 6 mult formats, 5 div formats (v1.5 structure)
-│   ├── storage.ts      ✅ Built — AsyncStorage helper (save/get/clear drill history, mode filtering)
+│   ├── storage.ts      ✅ Built — AsyncStorage helper (save/get/clear drill history, mode filtering). Each session carries clientSessionId/userId/synced for offline-first sync; legacy rows backfilled on read. getUnsyncedSessions() + markSessionSynced() power lib/sync.ts.
+│   ├── sync.ts         ✅ Built — pushUnsyncedSessions() upserts queued sessions + their mistakes to Supabase. Single-flight guard, idempotent retries via unique (user_id, client_session_id) and (session_id, position).
 │   ├── stats.ts        ✅ Built — getTodayStats(), getStreak() with qualifying-session rule, getWeeklyData() (timezone-correct), computeCpm(), getBestRecord() (Quick Drill personal best, CPM + accuracy tiebreaker)
 │   ├── format.ts       ✅ Built — formatNum() (toLocaleString thousands separators) + tabularNums style
 │   ├── settings.ts     ✅ Built — getSoundEnabled() / setSoundEnabled() (AsyncStorage, default ON)
@@ -64,7 +65,7 @@ ucmas-app/
 │   ├── profile.ts      ✅ Built — getMyProfile() + setDisplayName() (upsert-safe so it works even if the auth.users insert trigger hasn't fired yet)
 │   └── profileGate.ts  ✅ Built — ProfileGateContext + useProfileGate() hook so screens (e.g. onboarding) can ask the root gate to re-read the profile after a write
 ├── supabase/
-│   ├── schema.sql      ✅ Built — profiles, drill_sessions, drill_answers + RLS policies + handle_new_user() trigger that auto-creates profile row on auth.users insert
+│   ├── schema.sql      ✅ Built — profiles, drill_sessions, drill_answers + RLS policies (SELECT/INSERT/UPDATE — UPDATE required for upsert) + unique (user_id, client_session_id) and (session_id, position) for idempotent sync + handle_new_user() trigger that auto-creates profile row on auth.users insert. Track ids: 'add_sub' / 'mult' / 'div'.
 │   └── README.md       ✅ Built — manual dashboard setup steps (run schema, allow ucmas:// redirect URLs, customize Magic Link email template to show {{ .Token }})
 ├── constants/
 │   ├── colors.ts       🔲 Empty placeholder
@@ -75,6 +76,7 @@ ucmas-app/
 └── assets/
 ```
 ## Recent Changes
+- Offline-first drill sync shipped (Phase 1C). Every completed drill is saved to AsyncStorage with `clientSessionId` + `userId` + `synced=false`, then `lib/sync.ts`'s `pushUnsyncedSessions()` opportunistically upserts pending rows to Supabase (`drill_sessions` + `drill_answers`). Triggers: after each drill (results screen), on home-screen focus, and when the auth gate sees a session. Single-flight guard prevents racing pushes. Idempotent retries via DB unique constraints — `unique (user_id, client_session_id)` on sessions and `unique (session_id, position)` on answers (the latter added in this change). Two non-obvious gotchas hit during build: (a) the schema's check constraint had `track in ('addsub',...)` but the app uses `'add_sub'` — schema now matches the app; (b) supabase-js `upsert` runs as `INSERT ... ON CONFLICT DO UPDATE`, which evaluates the UPDATE policy even when no conflict happens, so SELECT+INSERT policies alone aren't enough — UPDATE policies on both tables are required. Also fixed a setState-in-render warning in `app/drill.tsx` where the timer's `setSecondsLeft` updater was calling `router.replace` synchronously; now deferred via `setTimeout(..., 0)` (was occasionally dropping the navigation under fast-refresh).
 - Supabase auth + profile shipped (Phase 1C). `lib/supabase.ts` is a RN-flavored client (AsyncStorage session, AppState refresh handler). `app/_layout.tsx` is now the root layout with an auth gate: no session → /auth, session but no display_name → /onboarding, otherwise → app. `app/auth.tsx` does magic-link OTP (email → 6-digit code → `verifyOtp({ type: 'email' })`); the dashboard's Magic Link email template must include `{{ .Token }}` so the code is visible (default template only has the link). `app/onboarding.tsx` captures display name and upserts to `profiles`. `lib/profileGate.ts` provides a Context so onboarding can call `refresh()` after save — without it, the gate held stale `hasName=false` and bounced the user back to /onboarding. Home shows "Hi, [Name]" + a temp 🚪 sign-out button (proper sign-out placement is task #7). DB schema + RLS in `supabase/schema.sql`; user manually runs it via Dashboard → SQL Editor + adds `ucmas://` to redirect URLs (per `supabase/README.md`).
 - Sound effects infra (no asset files yet): expo-av installed; lib/sounds.ts plays correct/wrong/drillEnd/newBest via a typed play() helper (lazy-load + cache, no-ops gracefully when a slot is unwired); lib/settings.ts persists sound on/off (default ON). Triggers wired in drill.tsx (correct/wrong) and results.tsx (drillEnd; newBest fired 600ms later when Quick Drill beats prev best). Home title row gets a 🔊/🔇 round button next to the streak. assets/sounds/ holds a README listing expected files + free-source links — drop a file in and uncomment one line in SOUND_MODULES to enable.
 - index.tsx: Home title row now shows a streak flame badge (🔥 N) on the right when the user has an active streak. Loaded via useFocusEffect so it refreshes after returning from a drill.
@@ -143,7 +145,7 @@ X button top-left → "Are you sure?" dialog → Yes = discard + go Home. Timer 
 Schema lives in `supabase/schema.sql`. Auth + profiles are wired (Phase 1C in progress); drill sync is task #6 (next).
 
 - **profiles** — `id` (FK auth.users), `email`, `display_name`, `current_addsub_level` (1–8). Auto-created on signup by `handle_new_user()` trigger; client also upserts as a safety net. RLS: users read/insert/update only their own row.
-- **drill_sessions** — `id`, `user_id`, `client_session_id` (UNIQUE per user — generated on device for offline-safe push), `track` ∈ {addsub, mult, div}, `level`, `format_id`, `drill_mode` ∈ {quick, full}, `total_questions`, `correct_count`, `time_seconds`, `completed_at`. RLS: users read/insert only their own.
+- **drill_sessions** — `id`, `user_id`, `client_session_id` (UNIQUE per user — generated on device for offline-safe push), `track` ∈ {add_sub, mult, div}, `level`, `format_id`, `drill_mode` ∈ {quick, full}, `total_questions`, `correct_count`, `time_seconds`, `completed_at`. RLS: users read/insert only their own.
 - **drill_answers** — `id`, `session_id`, `user_id`, `problem_text`, `user_answer`, `correct_answer`, `is_correct`, `position`, `time_ms`. Currently stores mistakes only (matches what `lib/storage.ts` records); schema permits `is_correct=true` rows so all answers can be captured later without migration. RLS: users read/insert only their own.
 
 ## Progress Dashboard Priority
@@ -184,7 +186,7 @@ Personal-best record is keyed by `(track, levelOrFormatId)` and derived from dri
 - [x] DB schema (`supabase/schema.sql`) — profiles + drill_sessions + drill_answers + RLS + signup trigger
 - [x] Auth screen + magic-link OTP (6-digit code typed into the app)
 - [x] Display name onboarding + profile row + ProfileGateContext for refresh-after-write
-- [ ] Sync drill sessions to Supabase (offline-first — write to AsyncStorage as today, push to Supabase opportunistically)
+- [x] Sync drill sessions to Supabase (offline-first — write to AsyncStorage as today, push to Supabase opportunistically)
 - [ ] Sign-out polish (current 🚪 on home is temp; final placement on Progress screen)
 
 ## Gamification (Phase 1C, parallel track)

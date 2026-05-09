@@ -60,7 +60,7 @@ create table if not exists public.drill_sessions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   client_session_id text not null,
-  track text not null check (track in ('addsub','mult','div')),
+  track text not null check (track in ('add_sub','mult','div')),
   level int,
   format_id text,
   drill_mode text not null check (drill_mode in ('quick','full')),
@@ -75,6 +75,12 @@ create table if not exists public.drill_sessions (
 create index if not exists drill_sessions_user_completed_idx
   on public.drill_sessions (user_id, completed_at desc);
 
+-- Keep the track check in sync with the app's track ids ('add_sub','mult','div').
+-- Earlier versions used 'addsub' (no underscore); replace if present.
+alter table public.drill_sessions drop constraint if exists drill_sessions_track_check;
+alter table public.drill_sessions
+  add constraint drill_sessions_track_check check (track in ('add_sub','mult','div'));
+
 alter table public.drill_sessions enable row level security;
 
 drop policy if exists "Users can read own sessions" on public.drill_sessions;
@@ -85,6 +91,14 @@ create policy "Users can read own sessions"
 drop policy if exists "Users can insert own sessions" on public.drill_sessions;
 create policy "Users can insert own sessions"
   on public.drill_sessions for insert
+  with check (auth.uid() = user_id);
+
+-- Required for upsert (`INSERT ... ON CONFLICT DO UPDATE`): even when no
+-- conflict happens, PostgREST evaluates the UPDATE policy.
+drop policy if exists "Users can update own sessions" on public.drill_sessions;
+create policy "Users can update own sessions"
+  on public.drill_sessions for update
+  using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
 -- =========================================================================
@@ -109,6 +123,18 @@ create table if not exists public.drill_answers (
 create index if not exists drill_answers_session_idx
   on public.drill_answers (session_id);
 
+-- Unique per (session, position) so the offline-first sync can safely
+-- re-upsert the same answers without producing duplicates on retry.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'drill_answers_session_pos_unique'
+  ) then
+    alter table public.drill_answers
+      add constraint drill_answers_session_pos_unique unique (session_id, position);
+  end if;
+end$$;
+
 alter table public.drill_answers enable row level security;
 
 drop policy if exists "Users can read own answers" on public.drill_answers;
@@ -119,4 +145,11 @@ create policy "Users can read own answers"
 drop policy if exists "Users can insert own answers" on public.drill_answers;
 create policy "Users can insert own answers"
   on public.drill_answers for insert
+  with check (auth.uid() = user_id);
+
+-- Required for upsert (see drill_sessions update policy above).
+drop policy if exists "Users can update own answers" on public.drill_answers;
+create policy "Users can update own answers"
+  on public.drill_answers for update
+  using (auth.uid() = user_id)
   with check (auth.uid() = user_id);

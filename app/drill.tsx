@@ -22,8 +22,9 @@ const MODE_QUESTIONS: Record<string, number> = {
   full: 200,
 };
 const MODE_SECONDS: Record<string, number> = {
-  quick: 60,
-  full: 480,
+  // TEMP: shortened for testing — revert to 60 / 480 before ship
+  quick: 15,
+  full: 30,
 };
 
 export interface QuestionResult {
@@ -58,21 +59,6 @@ export default function DrillScreen() {
   const questionStartRef = useRef<number>(Date.now());
   const drillStartRef = useRef<number>(Date.now());
 
-  // TEMP: test problem generation — remove after testing
-  useEffect(() => {
-    console.log('--- MULT TEST ---');
-    for (let i = 0; i < 5; i++) {
-      const p = generateProblem('mult', 'mult_2d_1d');
-      console.log(`${p.operands[0]} × ${p.operands[1]} = ${p.answer}`);
-    }
-    console.log('--- DIV TEST ---');
-    const divFormats = ['div_3d_1d', 'div_4d_2d', 'div_5d_3d'];
-    for (const fmt of divFormats) {
-      const p = generateProblem('div', fmt);
-      console.log(`${p.operands[0]} ÷ ${p.operands[1]} = ${p.answer} (${fmt})`);
-    }
-  }, []);
-
   // Generate first two problems on load and start timer
   useEffect(() => {
     drillStartRef.current = Date.now();
@@ -89,7 +75,10 @@ export default function DrillScreen() {
         setSecondsLeft(prev => {
           if (prev <= 1) {
             clearInterval(timerRef.current!);
-            handleTimeUp();
+            // Defer navigation out of the updater; calling router.replace
+            // synchronously here triggers a setState-in-render warning and
+            // can drop the navigation under fast-refresh / strict mode.
+            setTimeout(handleTimeUp, 0);
             return 0;
           }
           return prev - 1;

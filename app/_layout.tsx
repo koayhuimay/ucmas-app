@@ -12,6 +12,7 @@ import { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { getMyProfile } from '../lib/profile';
 import { ProfileGateContext } from '../lib/profileGate';
+import { pushUnsyncedSessions } from '../lib/sync';
 
 const BG = '#0F0F1A';
 
@@ -49,6 +50,8 @@ export default function RootLayout() {
       if (cancelled) return;
       setHasName(!!p?.display_name);
     });
+    // Drain any drills queued offline now that we have a user.
+    pushUnsyncedSessions();
     return () => {
       cancelled = true;
     };

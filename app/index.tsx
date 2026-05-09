@@ -16,6 +16,7 @@ import { getStreak } from '../lib/stats';
 import { getSoundEnabled, setSoundEnabled } from '../lib/settings';
 import { supabase } from '../lib/supabase';
 import { getMyProfile } from '../lib/profile';
+import { pushUnsyncedSessions } from '../lib/sync';
 
 type Track = 'add_sub' | 'mult' | 'div';
 type Mode = 'quick' | 'full';
@@ -37,6 +38,9 @@ export default function HomeScreen() {
       getStreak().then(setStreak);
       getSoundEnabled().then(setSoundOn);
       getMyProfile().then((p) => setDisplayName(p?.display_name ?? null));
+      // Catch up any sessions that were saved offline (or whose post-results
+      // push failed). No-op when there's nothing pending.
+      pushUnsyncedSessions();
     }, [])
   );
 

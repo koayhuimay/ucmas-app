@@ -16,6 +16,8 @@ import { Problem } from '../lib/drillEngine';
 import { QuestionResult } from './drill';
 import { ADD_SUB_LEVELS, MULT_FORMATS, DIV_FORMATS } from '../lib/levelConfig';
 import { saveDrillSession } from '../lib/storage';
+import { pushUnsyncedSessions } from '../lib/sync';
+import { supabase } from '../lib/supabase';
 import { computeCpm, getBestRecord, BestRecord } from '../lib/stats';
 import { formatNum } from '../lib/format';
 import { play as playSound } from '../lib/sounds';
@@ -181,7 +183,9 @@ export default function ResultsScreen() {
       if (beatBest) {
         setTimeout(() => playSound('newBest'), 600);
       }
+      const { data: userData } = await supabase.auth.getUser();
       await saveDrillSession({
+        userId: userData.user?.id ?? null,
         track,
         level: track === 'add_sub' ? parseInt(levelOrFormatId, 10) : null,
         formatId: track !== 'add_sub' ? levelOrFormatId : null,
@@ -196,6 +200,8 @@ export default function ResultsScreen() {
           correctAnswer: r.correctAnswer,
         })),
       });
+      // Fire-and-forget: pushes this session and any prior unsynced ones.
+      pushUnsyncedSessions();
     })();
   }, []);
 
