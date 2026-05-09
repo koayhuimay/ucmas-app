@@ -1,4 +1,4 @@
-> **Last Updated:** May 2026 | **Current Phase:** Phase 1B — Core Features
+> **Last Updated:** May 2026 | **Current Phase:** Phase 1C — Auth + Sync (sign-out polish remaining)
 
 ---
 
@@ -62,6 +62,8 @@ These are locked in. Don't re-ask or re-debate:
       Subtext: "X% accuracy · Y of 200 answered". Tiers match UCMAS exam grading conventions.
     - **Quick Drill** → **Correct per minute (CPM)** as hero metric, plus "X correct · Y% accuracy". Personal-best line shows "First record!", "New best!", or "Best: Z CPM @ W%". Personal-best ranking is lexicographic — CPM first, accuracy as tiebreaker — so two sessions with the same CPM are decided by who was more accurate.
     - Why: stars conflate accuracy + speed + volume into one ambiguous symbol. CPM naturally rewards being both fast AND accurate, fixing the "go slow to inflate accuracy" gaming problem. Personal-best record is keyed by `(track, levelOrFormatId)` in AsyncStorage.
+19. **Offline-first drill sync:** Every completed drill is written to AsyncStorage immediately (with a device-generated `clientSessionId` and `synced=false`). `lib/sync.ts`'s `pushUnsyncedSessions()` upserts pending rows to Supabase opportunistically — after each drill (results screen), on home-screen focus, and whenever the auth gate sees a fresh session. Single-flight guard prevents racing pushes. Idempotency is enforced at the DB layer: `unique (user_id, client_session_id)` on `drill_sessions` and `unique (session_id, position)` on `drill_answers`. Why this design: the kid can drill in the car / on a plane and nothing is lost, AND the cloud copy enables future cross-device + Practice Mistakes Mode + adaptive practice without any app rewrite. Two non-obvious traps when re-implementing: (a) the schema's `track` check must list `'add_sub'` (not `'addsub'`); (b) `supabase-js` `upsert` evaluates the UPDATE policy even when no conflict occurs, so SELECT+INSERT policies alone are insufficient — UPDATE policy is mandatory.
+20. **Local mistake-history capacity:** AsyncStorage keeps the last 500 sessions (`MAX_SESSIONS` in `lib/storage.ts`). Worst case ≈ 2.4 MB JSON parsed per read; realistic case <200 KB. If the home/progress screens start hitching once Practice Mistakes mode arrives and reads grow heavier, the planned remediation is to split storage into a small "session summaries" key (read on every focus event) and a separate "mistake details" key (read on demand). No action needed before that point — Supabase has the full mistake history regardless.
 
 ## PROJECT STRUCTURE
 
@@ -80,18 +82,26 @@ ucmas-app/
 ├── lib/
 │   ├── drillEngine.ts      ✅ Built — All tracks: Add/Sub (section-based, 8 levels), Mult (6 formats, operand swap), Div (5 formats, whole-number answers)
 │   ├── levelConfig.ts      ✅ Built — 8 Add/Sub levels (section-based), 6 mult formats, 5 div formats (v1.5 structure)
-│   ├── storage.ts          ✅ Built — AsyncStorage helper (save/get/clear drill history, mode filtering)
+│   ├── storage.ts          ✅ Built — AsyncStorage helper (save/get/clear drill history, mode filtering). Sessions tagged with clientSessionId/userId/synced for offline-first sync.
+│   ├── sync.ts             ✅ Built — pushUnsyncedSessions() upserts queued drills + mistakes to Supabase. Single-flight guard, idempotent retries via DB unique constraints.
 │   ├── stats.ts            ✅ Built — getTodayStats(), getStreak() (with qualifying-session rule), getWeeklyData() (timezone-correct), computeCpm(), getBestRecord()
 │   ├── format.ts           ✅ Built — formatNum() (thousands separators) + tabularNums style
 │   ├── settings.ts         ✅ Built — getSoundEnabled() / setSoundEnabled() (AsyncStorage, default ON)
 │   ├── sounds.ts           ✅ Built — play(name) helper backed by expo-av (slots wired, asset files TBD)
-│   └── supabase.ts         🔲 Empty placeholder
+│   ├── supabase.ts         ✅ Built — RN-flavored Supabase client (AsyncStorage session, AppState refresh, EXPO_PUBLIC_* env vars)
+│   ├── profile.ts          ✅ Built — getMyProfile() + setDisplayName() (upsert-safe)
+│   └── profileGate.ts      ✅ Built — ProfileGateContext so screens can ask the auth gate to re-read profile after a write
+├── supabase/
+│   ├── schema.sql          ✅ Built — profiles + drill_sessions + drill_answers + RLS (SELECT/INSERT/UPDATE — UPDATE required for upsert) + unique constraints for idempotent sync + handle_new_user() trigger
+│   └── README.md           ✅ Built — manual dashboard setup steps (run schema, allow ucmas:// redirect URLs, customize Magic Link email template to show {{ .Token }})
 ├── constants/
 │   ├── colors.ts           🔲 Empty placeholder
 │   └── formulas.ts         🔲 Empty placeholder
 ├── CLAUDE.md               ✅ Created — Claude Code project context
 ├── INSTRUCTIONS.md         ✅ This file — personal onboarding context
 ├── App.tsx.bak             ← Renamed — must stay as .bak, never rename back
+├── .env                    ← Gitignored. EXPO_PUBLIC_SUPABASE_URL + EXPO_PUBLIC_SUPABASE_ANON_KEY
+├── .env.example            ← Committed template
 └── assets/
 ```
 
@@ -204,11 +214,19 @@ Then paste all code files back in (see current code in Blueprint or previous cha
 - [x]  Timezone bug fix in `lib/stats.ts` — `isToday()`, `getStreak()`, `getWeeklyData()` no longer mix UTC date slices with local-time keys
 - [x]  Sound effects infrastructure — `expo-av`, `lib/sounds.ts`, `lib/settings.ts`, on/off toggle in home title row, triggers wired for correct / wrong / drill-end / new-best (asset files still to be sourced)
 
+### Phase 1C — Auth + Sync
+- [x]  Supabase client (`lib/supabase.ts`) — RN-flavored with AsyncStorage session + AppState refresh
+- [x]  DB schema (`supabase/schema.sql`) — profiles, drill_sessions, drill_answers + RLS (SELECT/INSERT/UPDATE) + unique constraints for idempotent sync + signup trigger
+- [x]  Magic-link OTP auth (`app/auth.tsx`) — email → 6-digit code → verify
+- [x]  Display-name onboarding (`app/onboarding.tsx`) + `ProfileGateContext` so the auth gate re-reads profile after write
+- [x]  Auth gate in `app/_layout.tsx` — no session → /auth, no name → /onboarding, otherwise → app
+- [x]  Offline-first drill sync — every drill saved to AsyncStorage with `clientSessionId`/`userId`/`synced`; `lib/sync.ts` upserts pending rows after each drill, on home focus, and when auth gate sees a session. Idempotent retries via `unique (user_id, client_session_id)` on sessions and `unique (session_id, position)` on answers.
+- [ ]  Sign-out polish — current 🚪 on home is temporary; final placement on Progress screen
+
 ### Not Yet Started
 - [ ]  Drop sound files into `assets/sounds/` and uncomment matching SOUND_MODULES lines in `lib/sounds.ts`
-- [ ]  Supabase integration (auth + 3 tables: profiles, drill_sessions, drill_answers)
 - [ ]  Google Sign-In (optional, prompted after 3rd drill)
-- [ ]  Practice Mistakes mode (requires Supabase)
+- [ ]  Practice Mistakes mode — uses the wrong answers already streaming to `drill_answers` (each row tagged `is_correct=false`); needs a "Practice Mistakes" entry on home that pulls from this pool
 - [ ]  Freemium paywall (free tier limits + premium gating)
 - [ ]  App Store / Play Store submission
 
